@@ -9,23 +9,25 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #ede8de;
-    --surface: rgba(248, 245, 239, 0.92);
-    --surface-solid: #f8f5ef;
-    --well: #e5dfd3;
-    --ink: #1c1a17;
-    --ink-2: #5e574d;
-    --ink-3: #8a8277;
-    --hairline: rgba(28, 26, 23, 0.11);
-    --hairline-strong: rgba(28, 26, 23, 0.2);
-    --accent: #d65a28;
-    --accent-soft: rgba(214, 90, 40, 0.11);
-    --green: #2e7d4f;
-    --amber: #c28516;
-    --gray: #8a8277;
+    --bg: #e5f0fb;
+    --surface: rgba(255, 252, 247, 0.92);
+    --surface-solid: #fffcf7;
+    --well: #eef3f8;
+    --ink: #232130;
+    --ink-2: #5b586d;
+    --ink-3: #8a869c;
+    --hairline: rgba(35, 33, 48, 0.11);
+    --hairline-strong: rgba(35, 33, 48, 0.2);
+    --accent: #e85d38;
+    --accent-soft: rgba(232, 93, 56, 0.12);
+    --green: #1f9d63;
+    --amber: #d98218;
+    --teal: #0f8f96;
+    --sky: #3178e8;
+    --gray: #8a869c;
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-    --shadow-elev: 0 1px 2px rgba(28, 26, 23, 0.06), 0 12px 32px rgba(28, 26, 23, 0.1);
-    --shadow-sm: 0 1px 2px rgba(28, 26, 23, 0.05), 0 4px 12px rgba(28, 26, 23, 0.08);
+    --shadow-elev: 0 2px 4px rgba(35, 33, 48, 0.06), 0 14px 34px rgba(42, 60, 92, 0.14);
+    --shadow-sm: 0 1px 2px rgba(35, 33, 48, 0.06), 0 4px 12px rgba(42, 60, 92, 0.09);
     --hud-top: 72px;
   }
 
@@ -153,7 +155,7 @@
   .view-btn.active {
     background: var(--surface-solid);
     color: var(--ink);
-    box-shadow: 0 1px 2px rgba(28, 26, 23, 0.08);
+    box-shadow: 0 1px 2px rgba(35, 33, 48, 0.08);
   }
   .auto-btn {
     display: inline-flex;
@@ -174,7 +176,7 @@
     position: absolute;
     top: var(--hud-top);
     left: 16px;
-    width: 280px;
+    width: 300px;
     background: var(--surface);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -209,7 +211,7 @@
     background: var(--surface-solid);
     color: var(--ink);
     font-weight: 600;
-    box-shadow: 0 1px 2px rgba(28, 26, 23, 0.08);
+    box-shadow: 0 1px 2px rgba(35, 33, 48, 0.08);
   }
 
   .drawer-panel { max-height: calc(100vh - 192px); overflow-y: auto; font-size: 13px; }
@@ -228,12 +230,12 @@
     cursor: pointer;
   }
   .agent-row:last-child { border-bottom: none; }
-  .agent-row:hover { background: rgba(28, 26, 23, 0.03); }
+  .agent-row:hover { background: rgba(49, 120, 232, 0.05); }
   .agent-row.active { background: var(--accent-soft); }
   .agent-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
-  .agent-row-id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .agent-row-id { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .agent-name { font-weight: 600; font-size: 13px; color: var(--ink); }
+  .agent-name { font-weight: 600; font-size: 13px; color: var(--ink); white-space: nowrap; }
   .zone-tag {
     font-family: "IBM Plex Mono", monospace;
     font-size: 10px;
@@ -245,27 +247,35 @@
     background: var(--well);
     color: var(--ink-2);
     border: 1px solid var(--hairline);
+    flex: none;
   }
   .zone-tag.boss-tag {
-    background: rgba(214, 138, 40, 0.14);
+    background: rgba(217, 130, 24, 0.14);
     color: #9e5d10;
-    border-color: rgba(214, 138, 40, 0.35);
+    border-color: rgba(217, 130, 24, 0.35);
   }
   .zone-tag.cli-tag {
-    background: rgba(31, 110, 122, 0.12);
-    color: #165660;
-    border-color: rgba(31, 110, 122, 0.32);
+    background: rgba(15, 143, 150, 0.12);
+    color: #0b6e74;
+    border-color: rgba(15, 143, 150, 0.32);
+  }
+  .zone-tag.agy-tag {
+    font-family: inherit;
+    background: linear-gradient(135deg, rgba(232, 93, 56, 0.14), rgba(49, 120, 232, 0.14));
+    color: #b84222;
+    border-color: rgba(232, 93, 56, 0.34);
   }
   .agent-row.boss-row {
-    background: rgba(255, 250, 238, 0.65);
+    background: rgba(255, 249, 232, 0.72);
   }
   .agent-row.boss-row:hover {
-    background: rgba(255, 246, 224, 0.95);
+    background: rgba(255, 244, 214, 0.96);
   }
   .agent-model-tag {
     font-size: 11px;
     color: var(--ink-2);
-    max-width: 128px;
+    max-width: 112px;
+    flex: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -273,7 +283,7 @@
   .agent-row-task {
     font-size: 12px;
     color: var(--ink-2);
-    padding-left: 16px;
+    padding-left: 14px;
     line-height: 1.4;
   }
   .progress-track {
@@ -317,16 +327,18 @@
     border-radius: 999px;
     white-space: nowrap;
   }
-  .check-pill.ok { background: rgba(46, 125, 79, 0.12); color: var(--green); }
-  .check-pill.warn { background: var(--accent-soft); color: #a33d1f; }
+  .check-pill.ok { background: rgba(31, 157, 99, 0.14); color: var(--green); }
+  .check-pill.warn { background: var(--accent-soft); color: #b84222; }
   .check-meta { font-size: 12px; color: var(--ink-2); line-height: 1.4; }
 
-  /* 右侧检查员卡片（无标签页） */
+  /* 右侧检查员卡片（无标签页，含最近 3 条对话列表） */
   #inspector {
     position: absolute;
     top: var(--hud-top);
     right: 16px;
     width: 336px;
+    max-height: calc(100vh - 156px);
+    overflow-y: auto;
     background: var(--surface);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -335,15 +347,18 @@
     box-shadow: var(--shadow-elev);
     z-index: 10;
     font-size: 13px;
-    overflow: hidden;
   }
   #inspector[hidden] { display: none; }
   #inspector header {
+    position: sticky;
+    top: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
     border-bottom: 1px solid var(--hairline);
+    background: var(--surface-solid);
+    z-index: 1;
   }
   .inspector-head-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
   #inspector-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
@@ -377,6 +392,78 @@
   .spec-k { font-size: 11px; color: var(--ink-2); margin-bottom: 4px; }
   .spec-v { font-size: 12px; font-weight: 600; color: var(--ink); word-break: break-word; }
 
+  /* 检查员最近 3 条对话选择区 */
+  .recent-section { display: flex; flex-direction: column; gap: 6px; }
+  .recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .recent-list { display: flex; flex-direction: column; gap: 6px; }
+  .recent-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-solid);
+    text-align: left;
+    cursor: pointer;
+  }
+  .recent-item:hover { border-color: var(--hairline-strong); background: #fff; }
+  .recent-item.active {
+    border-color: var(--accent);
+    background: rgba(232, 93, 56, 0.06);
+  }
+  .recent-item-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .recent-item-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+  .mode-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+    background: var(--well);
+    color: var(--ink-2);
+    border: 1px solid var(--hairline);
+  }
+  .mode-pill.local {
+    background: rgba(31, 157, 99, 0.12);
+    color: #167a4d;
+    border-color: rgba(31, 157, 99, 0.28);
+  }
+  .mode-pill.cloud {
+    background: rgba(49, 120, 232, 0.12);
+    color: #205cb8;
+    border-color: rgba(49, 120, 232, 0.28);
+  }
+  .mode-pill.record {
+    background: rgba(91, 88, 109, 0.09);
+    color: var(--ink-2);
+    border-color: var(--hairline);
+  }
+
   .inspector-actions { display: flex; gap: 8px; }
   .inspector-actions button {
     flex: 1;
@@ -389,7 +476,7 @@
     font-size: 13px;
     font-weight: 500;
   }
-  .inspector-actions button:hover { background: #2e2a25; }
+  .inspector-actions button:hover { background: #36334a; }
   .inspector-actions button.secondary {
     background: var(--surface-solid);
     color: var(--ink);
@@ -397,13 +484,13 @@
   }
   .inspector-actions button.secondary:hover { background: var(--well); }
 
-  /* 独立对话页（⌘K 瞬时打开，无开合延迟） */
+  /* 独立对话页（⌘K 瞬时打开，含最近 3 条切换条 + +新对话 + 本地/云端切换） */
   #dialogue {
     position: absolute;
     left: 50%;
     bottom: 72px;
     transform: translateX(-50%);
-    width: min(560px, calc(100vw - 32px));
+    width: min(548px, calc(100vw - 32px));
     background: var(--surface-solid);
     border: 1px solid var(--hairline-strong);
     border-radius: 12px;
@@ -417,19 +504,111 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--hairline);
     background: var(--surface);
   }
-  #dialogue header h2 { font-size: 14px; font-weight: 700; margin: 0; }
-  #dialogue-log { padding: 12px 16px; max-height: 220px; overflow-y: auto; }
+  #dialogue header h2 { font-size: 14px; font-weight: 700; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dialogue-head-controls { display: flex; align-items: center; gap: 8px; flex: none; }
+
+  #dialogue-mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    background: var(--well);
+    border: 1px solid var(--hairline);
+  }
+  #dialogue-mode-switch[hidden] { display: none; }
+  .mode-switch-btn {
+    height: 24px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink-2);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .mode-switch-btn.active {
+    background: var(--surface-solid);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(35, 33, 48, 0.1);
+  }
+
+  #dialogue-threads {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--well);
+    border-bottom: 1px solid var(--hairline);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  #dialogue-threads::-webkit-scrollbar { display: none; }
+  .thread-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-solid);
+    color: var(--ink-2);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    max-width: 175px;
+    flex: none;
+  }
+  .thread-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .thread-pill:hover { border-color: var(--hairline-strong); color: var(--ink); }
+  .thread-pill.active {
+    background: var(--ink);
+    color: var(--surface-solid);
+    border-color: var(--ink);
+    font-weight: 600;
+  }
+  .thread-pill.new-btn {
+    border-style: dashed;
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .thread-pill.new-btn.active {
+    border-style: solid;
+    background: var(--accent);
+    color: #fff;
+  }
+  .thread-mode-tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: rgba(49, 120, 232, 0.12);
+    color: #205cb8;
+    flex: none;
+  }
+  .thread-pill.active .thread-mode-tag {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  #dialogue-log { padding: 12px 16px; max-height: 230px; overflow-y: auto; }
   #dialogue-log:empty::before {
-    content: "输入一句话即可点名工位或切换模型，例如：让 Gemini 用 4 Neon 写个总结";
+    content: "点击上方「+ 新对话」或直接输入一句话即可开始，例如：让 Antigravity 或 Codex 介绍一下自己";
     display: block;
     color: var(--ink-3);
     font-size: 12px;
   }
-  #dialogue-log .msg { margin-bottom: 8px; line-height: 1.5; }
+  #dialogue-log .msg { margin-bottom: 10px; line-height: 1.5; }
+  #dialogue-log .msg:last-child { margin-bottom: 0; }
   #dialogue-log .msg.user { text-align: right; color: var(--ink-2); }
   #dialogue-log .msg.loading { color: var(--ink-2); font-style: italic; }
   #dialogue-log .msg-body { white-space: pre-wrap; word-break: break-word; margin: 4px 0; }
@@ -463,6 +642,7 @@
     font-size: 13px;
     font-weight: 500;
   }
+  #dialogue-send:disabled { opacity: 0.6; cursor: progress; }
 
   /* 底部指令坞（高密度精密读数条，无滚动条杂讯） */
   #dock {
@@ -513,25 +693,25 @@
   .dock-item:first-of-type { padding-left: 0; border-left: none; }
   .dock-item b { font-weight: 600; color: var(--ink); }
 
-  /* 3D 头顶标签 */
+  /* 3D 头顶标签（动漫明快高对比样式） */
   .head-label-anchor { pointer-events: none; }
   .head-label {
     font-size: 12px;
     line-height: 1.35;
     text-align: left;
-    background: rgba(250, 247, 240, 0.94);
-    border: 1px solid var(--hairline-strong);
-    border-radius: 8px;
+    background: rgba(255, 253, 249, 0.95);
+    border: 1px solid rgba(35, 33, 48, 0.16);
+    border-radius: 10px;
     padding: 4px 10px;
     white-space: nowrap;
     color: var(--ink);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 3px 10px rgba(42, 60, 92, 0.14);
     pointer-events: none;
   }
   .head-label-top { display: flex; align-items: center; gap: 6px; }
   .head-label[data-boss="true"] {
-    background: rgba(255, 250, 238, 0.95);
-    border-color: rgba(214, 138, 40, 0.48);
+    background: rgba(255, 250, 232, 0.96);
+    border-color: rgba(232, 132, 34, 0.52);
   }
   .head-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
   .head-label .name { font-weight: 700; font-size: 12px; color: var(--ink); }
@@ -662,16 +842,23 @@
   <section id="dialogue" hidden>
     <header>
       <h2 id="dialogue-title">新对话</h2>
-      <button type="button" id="dialogue-close" class="icon-close" aria-label="关闭">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-          <line x1="3.5" y1="3.5" x2="12.5" y2="12.5"/>
-          <line x1="12.5" y1="3.5" x2="3.5" y2="12.5"/>
-        </svg>
-      </button>
+      <div class="dialogue-head-controls">
+        <div id="dialogue-mode-switch" role="group" aria-label="Antigravity 会话模式" hidden>
+          <button type="button" class="mode-switch-btn active" data-agy-mode="local">本地对话</button>
+          <button type="button" class="mode-switch-btn" data-agy-mode="cloud">云端对话</button>
+        </div>
+        <button type="button" id="dialogue-close" class="icon-close" aria-label="关闭">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <line x1="3.5" y1="3.5" x2="12.5" y2="12.5"/>
+            <line x1="12.5" y1="3.5" x2="3.5" y2="12.5"/>
+          </svg>
+        </button>
+      </div>
     </header>
+    <div id="dialogue-threads"></div>
     <div id="dialogue-log"></div>
     <div id="dialogue-input-row">
-      <input id="dialogue-input" placeholder="输入指令，例如：让 Codex 用 GPT-6.2-Sol 用一句话介绍自己">
+      <input id="dialogue-input" placeholder="输入指令，例如：让 Antigravity 或 Codex 用一句话介绍自己">
       <button type="button" id="dialogue-send">发送</button>
     </div>
   </section>

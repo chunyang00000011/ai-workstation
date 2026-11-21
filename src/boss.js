@@ -6,15 +6,15 @@ function makeBellyTexture() {
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#f0b848';
+  ctx.fillStyle = '#f7b738';
   ctx.fillRect(0, 0, 512, 256);
 
   // 胸腹正中奶黄色大肚皮（Lathe 旋转 π 后 u=0.5 对齐正面 +Z）
   const grad = ctx.createRadialGradient(256, 138, 24, 256, 138, 128);
-  grad.addColorStop(0, '#f9e3ad');
-  grad.addColorStop(0.76, '#f6d897');
-  grad.addColorStop(0.92, '#f2c464');
-  grad.addColorStop(1, 'rgba(240, 184, 72, 0)');
+  grad.addColorStop(0, '#fff0bc');
+  grad.addColorStop(0.76, '#ffd66b');
+  grad.addColorStop(0.92, '#f7b738');
+  grad.addColorStop(1, 'rgba(247, 183, 56, 0)');
 
   ctx.save();
   ctx.translate(256, 138);
@@ -52,10 +52,10 @@ function makeChestBoxTexture() {
   ctx.fillStyle = '#2b2c30';
   ctx.fillRect(26, 114, 42, 22);
 
-  // 右侧焦糖橙宇航徽章 + 小星星
-  ctx.fillStyle = '#c87432';
+  // 右侧亮珊瑚橙宇航徽章 + 小星星
+  ctx.fillStyle = '#e86c36';
   ctx.fillRect(132, 26, 98, 66);
-  ctx.fillStyle = '#f6d897';
+  ctx.fillStyle = '#fff0bc';
   ctx.beginPath();
   ctx.arc(158, 59, 8, 0, Math.PI * 2);
   ctx.fill();
@@ -152,7 +152,7 @@ function makeBootFoot(whiteMat, oliveMat, metalMat) {
   return foot;
 
   function stdYellow() {
-    return new THREE.MeshStandardMaterial({ color: 0xefb648, roughness: 0.58, envMapIntensity: 0.42 });
+    return new THREE.MeshStandardMaterial({ color: 0xffc94d, roughness: 0.52, envMapIntensity: 0.42 });
   }
 }
 
@@ -176,12 +176,13 @@ export function createBossNailong({ std, makeContactShadow, makeBossLabel, reduc
   const root = new THREE.Group();
   root.position.set(WAYPOINTS[0].x, 0, WAYPOINTS[0].z);
 
-  const skinMat = std(0xf2bf4e, 0.54);
-  const whiteSuitMat = std(0xf1efe9, 0.6);
-  const trimDarkMat = std(0x2d2b28, 0.42, { metalness: 0.25 });
-  const oliveMat = std(0x6e603b, 0.72);
-  const metalMat = std(0xb8b4ac, 0.32, { metalness: 0.7 });
-  const mintEyeMat = std(0xa9c799, 0.35);
+  const skinMat = std(0xffc94d, 0.5);
+  const whiteSuitMat = std(0xfbfaf6, 0.55);
+  const trimDarkMat = std(0x2e2c36, 0.42, { metalness: 0.25 });
+  const oliveMat = std(0x75663e, 0.68);
+  const metalMat = std(0xc2bec8, 0.3, { metalness: 0.7 });
+  const mintEyeMat = std(0xa8dfaa, 0.32);
+  const blushMat = std(0xff8a7a, 0.7);
   const pupilMat = std(0x181a17, 0.15, { metalness: 0.2 });
   const specMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
@@ -340,6 +341,15 @@ export function createBossNailong({ std, makeContactShadow, makeBossLabel, reduc
   mouth.rotation.z = Math.PI / 2;
   mouth.position.set(0, 1.242, 0.251);
   bodyGroup.add(mouth);
+
+  // 可爱动漫腮红
+  for (const side of [-1, 1]) {
+    const blush = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 10), blushMat);
+    blush.scale.set(1.2, 0.65, 0.45);
+    blush.position.set(side * 0.135, 1.275, 0.205);
+    blush.rotation.y = side * 0.45;
+    bodyGroup.add(blush);
+  }
 
   // 7. 开放式白宇航头盔 + 领圈 + 耳机侧盖 + 透明玻璃面罩穹顶
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.245, 0.044, 14, 32), whiteSuitMat);

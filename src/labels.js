@@ -28,8 +28,8 @@ function fitFont(ctx, text, maxWidth, startPx, minPx, weight = '') {
   return `${weight ? `${weight} ` : ''}${minPx}px ${FONT_STACK}`;
 }
 
-// 单层 1024x384 桌牌：Atelier Braun 阳极象牙铭牌（第一行名字，第二行默认模型/待核对）。
-export function makeDeskPlateTexture(agent, defaultModel, accentHex = '#b0703c') {
+// 单层 1024x384 桌牌：动漫暖白奶油铭牌（第一行名字，第二行默认模型/待核对）。
+export function makeDeskPlateTexture(agent, defaultModel, accentHex = '#ff6b3d') {
   const canvas = document.createElement('canvas');
   canvas.width = PLATE_W;
   canvas.height = PLATE_H;
@@ -38,43 +38,41 @@ export function makeDeskPlateTexture(agent, defaultModel, accentHex = '#b0703c')
   const modelText = defaultModel || '待核对';
   const isPending = !defaultModel;
 
-  // 温润哑光瓷面底色与极微弱顶底光感
   const bg = ctx.createLinearGradient(0, 0, 0, PLATE_H);
-  bg.addColorStop(0, '#FCF9F3');
-  bg.addColorStop(1, '#F2ECE0');
+  bg.addColorStop(0, '#FFFDF8');
+  bg.addColorStop(1, '#F7F0E4');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, PLATE_W, PLATE_H);
 
-  // 精密金属外框线
-  ctx.strokeStyle = '#CFC5B4';
+  ctx.strokeStyle = '#D7CDBC';
   ctx.lineWidth = 6;
   ctx.strokeRect(12, 12, PLATE_W - 24, PLATE_H - 24);
 
-  // 顶部内嵌品牌识别条（14px）
+  // 顶部亮色品牌识别条（18px）
   ctx.fillStyle = isPending ? '#9E978D' : accentHex;
-  ctx.fillRect(15, 15, PLATE_W - 30, 14);
+  ctx.fillRect(15, 15, PLATE_W - 30, 18);
 
   // 右上角精密状态指示点
   ctx.fillStyle = isPending ? '#9E978D' : accentHex;
   ctx.beginPath();
-  ctx.arc(PLATE_W - 56, 68, 10, 0, Math.PI * 2);
+  ctx.arc(PLATE_W - 56, 72, 11, 0, Math.PI * 2);
   ctx.fill();
 
   // 第一行：工位名称
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#1C1A17';
+  ctx.fillStyle = '#232130';
   ctx.font = fitFont(ctx, agent.name, innerMaxW, 136, 76, '700');
-  ctx.fillText(agent.name, PLATE_W / 2, 148, innerMaxW);
+  ctx.fillText(agent.name, PLATE_W / 2, 150, innerMaxW);
 
-  // 中间精密分割线
-  ctx.fillStyle = 'rgba(28, 26, 23, 0.12)';
-  ctx.fillRect(110, 216, PLATE_W - 220, 2);
+  // 中间分割线
+  ctx.fillStyle = 'rgba(35, 33, 48, 0.12)';
+  ctx.fillRect(110, 218, PLATE_W - 220, 2);
 
   // 第二行：默认模型或待核对
-  ctx.fillStyle = isPending ? '#8A8277' : '#5E564C';
+  ctx.fillStyle = isPending ? '#8A869C' : '#58546A';
   ctx.font = fitFont(ctx, modelText, innerMaxW, 84, 48, '500');
-  ctx.fillText(modelText, PLATE_W / 2, 286, innerMaxW);
+  ctx.fillText(modelText, PLATE_W / 2, 288, innerMaxW);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -82,7 +80,7 @@ export function makeDeskPlateTexture(agent, defaultModel, accentHex = '#b0703c')
 }
 
 // 头顶 CSS2D 标签：外层锚点由 CSS2DRenderer 控制定位，内层卡片用于防重叠微调。
-export function makeHeadLabel(agent, defaultModel, statusColorHex = '#8a8277') {
+export function makeHeadLabel(agent, defaultModel, statusColorHex = '#8a869c') {
   const anchor = document.createElement('div');
   anchor.className = 'head-label-anchor';
 
@@ -136,7 +134,7 @@ export function makeBossLabel(name, statusText) {
 
   const dot = document.createElement('span');
   dot.className = 'head-dot';
-  dot.style.background = '#d68a28';
+  dot.style.background = '#e88422';
 
   const nameEl = document.createElement('span');
   nameEl.className = 'name';
@@ -161,7 +159,7 @@ export function makeBossLabel(name, statusText) {
 // 标签到头像之间的短引线。
 export function makeLeaderLine(from, to) {
   const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
-  const mat = new THREE.LineBasicMaterial({ color: 0xb86d3b, transparent: true, opacity: 0.78 });
+  const mat = new THREE.LineBasicMaterial({ color: 0xd97348, transparent: true, opacity: 0.82 });
   return new THREE.Line(geo, mat);
 }
 
