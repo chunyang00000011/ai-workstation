@@ -246,6 +246,17 @@
     color: var(--ink-2);
     border: 1px solid var(--hairline);
   }
+  .zone-tag.boss-tag {
+    background: rgba(214, 138, 40, 0.14);
+    color: #9e5d10;
+    border-color: rgba(214, 138, 40, 0.35);
+  }
+  .agent-row.boss-row {
+    background: rgba(255, 250, 238, 0.65);
+  }
+  .agent-row.boss-row:hover {
+    background: rgba(255, 246, 224, 0.95);
+  }
   .agent-model-tag {
     font-size: 11px;
     color: var(--ink-2);
@@ -511,6 +522,10 @@
     pointer-events: none;
   }
   .head-label-top { display: flex; align-items: center; gap: 6px; }
+  .head-label[data-boss="true"] {
+    background: rgba(255, 250, 238, 0.95);
+    border-color: rgba(214, 138, 40, 0.48);
+  }
   .head-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
   .head-label .name { font-weight: 700; font-size: 12px; color: var(--ink); }
   .head-label .model { font-size: 11px; color: var(--ink-2); padding-left: 12px; }

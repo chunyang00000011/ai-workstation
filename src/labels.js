@@ -116,6 +116,42 @@ export function makeHeadLabel(agent, defaultModel, statusColorHex = '#8a8277') {
   return obj;
 }
 
+// 老板（宇航员奶龙）巡逻头顶标签：renderOrder = 10，始终低于 Zone A（12/11）。
+export function makeBossLabel(name, statusText) {
+  const anchor = document.createElement('div');
+  anchor.className = 'head-label-anchor';
+
+  const card = document.createElement('div');
+  card.className = 'head-label';
+  card.dataset.boss = 'true';
+
+  const topRow = document.createElement('div');
+  topRow.className = 'head-label-top';
+
+  const dot = document.createElement('span');
+  dot.className = 'head-dot';
+  dot.style.background = '#d68a28';
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'name';
+  nameEl.textContent = name;
+  topRow.append(dot, nameEl);
+
+  const modelEl = document.createElement('div');
+  modelEl.className = 'model';
+  modelEl.textContent = statusText;
+
+  card.append(topRow, modelEl);
+  anchor.appendChild(card);
+
+  const obj = new CSS2DObject(anchor);
+  obj.renderOrder = 10;
+  obj.userData.cardEl = card;
+  obj.userData.modelEl = modelEl;
+  obj.userData.nudgeY = 0;
+  return obj;
+}
+
 // 标签到头像之间的短引线。
 export function makeLeaderLine(from, to) {
   const geo = new THREE.BufferGeometry().setFromPoints([from, to]);

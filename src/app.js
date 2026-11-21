@@ -3,15 +3,17 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import {
+  makeBossLabel,
   makeDeskPlateTexture,
   makeHeadLabel,
   makeLeaderLine,
   resolveZoneAOverlap,
   ZONE_A_STAGGER,
 } from './labels.js';
+import { createBossNailong } from './boss.js';
 
-// v6 规范：剖面式制图室 10.8m x 7.6m x 3.3m，FOV 33，ACES 曝光 1.04，环境强度 0.42。
-const ROOM = { w: 10.8, d: 7.6, h: 3.3 };
+// v6 规范：剖面式制图室 14.4m x 10.4m x 3.5m（宽敞巡逻通道），FOV 33，ACES 曝光 1.04，环境强度 0.42。
+const ROOM = { w: 14.4, d: 10.4, h: 3.5 };
 const CAMERA_FOV = 33;
 const EXPOSURE = 1.04;
 const ENV_INTENSITY = 0.42;
@@ -46,11 +48,11 @@ const ACCENT_HEX = { GPT: '#2e7d4f', Claude: '#b86238', Gemini: '#2f63c6', Grok:
 
 // 工位布局：Zone A 双岛（Antigravity 左半、Gemini 右半），Zone B GPT 独立桌，Zone C 访客长凳。
 const LAYOUT = {
-  5: { x: -3.9, z: -2.2, zone: 'A' },
-  3: { x: -0.9, z: -2.2, zone: 'A' },
-  1: { x: 3.6, z: -1.4, zone: 'B', rotY: -0.35 },
-  2: { x: -1.4, z: 2.5, zone: 'C' },
-  4: { x: 1.4, z: 2.5, zone: 'C' },
+  5: { x: -4.9, z: -2.8, zone: 'A' },
+  3: { x: -1.5, z: -2.8, zone: 'A' },
+  1: { x: 4.5, z: -1.8, zone: 'B', rotY: -0.35 },
+  2: { x: -1.9, z: 3.2, zone: 'C' },
+  4: { x: 1.9, z: 3.2, zone: 'C' },
 };
 
 const state = {
@@ -59,6 +61,8 @@ const state = {
   currentAgent: null,
   currentTopic: '',
   cameraGoal: null,
+  followBoss: false,
+  inspectingBoss: false,
 };
 
 const container = document.getElementById('scene-container');
@@ -85,7 +89,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xede8de);
 
 const camera = new THREE.PerspectiveCamera(CAMERA_FOV, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(8.4, 6.8, 11.0);
+camera.position.set(10.6, 8.2, 13.8);
 
 function updateCameraProjection() {
   const aspect = window.innerWidth / window.innerHeight;
@@ -102,12 +106,12 @@ function updateCameraProjection() {
 updateCameraProjection();
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(-0.2, 0.7, 0);
+controls.target.set(-0.4, 0.7, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI / 2.15;
-controls.minDistance = 3;
-controls.maxDistance = 24;
+controls.maxPolarAngle = Math.PI / 2.12;
+controls.minDistance = 3.5;
+controls.maxDistance = 28;
 controls.addEventListener('start', () => {
   state.cameraGoal = null;
 });
@@ -123,15 +127,15 @@ const hemi = new THREE.HemisphereLight(0xfff8ee, 0x7a6c5a, 0.58);
 scene.add(hemi);
 
 const sun = new THREE.DirectionalLight(0xfff2de, 1.85);
-sun.position.set(7.2, 8.8, 5.2);
+sun.position.set(8.5, 10.5, 6.2);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 28;
-sun.shadow.camera.left = -7.5;
-sun.shadow.camera.right = 7.5;
-sun.shadow.camera.top = 7.5;
-sun.shadow.camera.bottom = -7.5;
+sun.shadow.camera.far = 34;
+sun.shadow.camera.left = -9.5;
+sun.shadow.camera.right = 9.5;
+sun.shadow.camera.top = 9.5;
+sun.shadow.camera.bottom = -9.5;
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.02;
 scene.add(sun);
@@ -140,13 +144,18 @@ const windowFill = new THREE.DirectionalLight(0xdcebff, 0.35);
 windowFill.position.set(-4, 4, -6);
 scene.add(windowFill);
 
-const pickables = []; // Mesh[] with userData.agentId
+const pickables = []; // Mesh[] with userData.agentId or userData.boss
 const deskPlates = {}; // agentId -> { mesh, texture }
 const headLabels = {}; // agentId -> CSS2DObject
 const zoneALabels = {}; // agent.name -> CSS2DObject
 const avatarRigs = []; // { group, baseY, phase, active }
 
 let contactShadowTex = null;
+let backWallGroup = null;
+let leftWallGroup = null;
+let windowGroup = null;
+let boss = null;
+const lastBossPos = new THREE.Vector3();
 
 function std(color, roughness = 0.85, extra = {}) {
   return new THREE.MeshStandardMaterial({
@@ -210,7 +219,7 @@ function makeOakFloorTexture() {
       ctx.fillStyle = 'rgba(72, 52, 32, 0.2)';
       ctx.fillRect(0, y + plankH - 2, w, 2);
     }
-  }, { repeat: [4, 3] });
+  }, { repeat: [5, 4] });
 }
 
 function makePlasterWallTexture() {
@@ -325,13 +334,13 @@ function buildRoom() {
   const metalMat = std(0x282521, 0.42, { metalness: 0.45 });
 
   // 建筑沙盘厚底座 + 地面柔和投影
-  const plinth = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w + 0.36, 0.28, ROOM.d + 0.36), cutawayMat);
-  plinth.position.set(0, -0.141, 0);
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w + 0.44, 0.3, ROOM.d + 0.44), cutawayMat);
+  plinth.position.set(0, -0.151, 0);
   plinth.receiveShadow = true;
   roomGroup.add(plinth);
 
-  const dioramaShadow = makeContactShadow(ROOM.w + 3.2, ROOM.d + 2.8, 0.22);
-  dioramaShadow.position.set(0.3, -0.285, 0.3);
+  const dioramaShadow = makeContactShadow(ROOM.w + 3.8, ROOM.d + 3.4, 0.22);
+  dioramaShadow.position.set(0.35, -0.305, 0.35);
   roomGroup.add(dioramaShadow);
 
   // 欧洲橡木拼接地板
@@ -343,53 +352,36 @@ function buildRoom() {
   floor.receiveShadow = true;
   roomGroup.add(floor);
 
-  // 剖面式墙壁（后墙与左墙，内侧面朝向 ROOM 边界，切面处包深灰切口压条）
+  // 剖面式墙壁分组（以 y=0 为缩放枢轴，相机转至墙后时自动降为地坪矮边，杜绝卡墙挡视角）
   const wallTex = makePlasterWallTexture();
   const wallMat = std(0xffffff, 0.92, { map: wallTex });
-  const wallT = 0.18;
+  const wallT = 0.2;
 
+  backWallGroup = new THREE.Group();
   const backWall = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w + wallT, ROOM.h, wallT), wallMat);
   backWall.position.set(-wallT / 2, ROOM.h / 2, -ROOM.d / 2 - wallT / 2);
   backWall.receiveShadow = true;
   backWall.castShadow = true;
-  roomGroup.add(backWall);
+  backWallGroup.add(backWall);
 
-  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallT, ROOM.h, ROOM.d), wallMat);
-  leftWall.position.set(-ROOM.w / 2 - wallT / 2, ROOM.h / 2, 0);
-  leftWall.receiveShadow = true;
-  leftWall.castShadow = true;
-  roomGroup.add(leftWall);
+  const backCap = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w + wallT + 0.01, 0.045, wallT + 0.01), cutawayMat);
+  backCap.position.set(-wallT / 2, ROOM.h + 0.022, -ROOM.d / 2 - wallT / 2);
+  backWallGroup.add(backCap);
 
-  // 墙体剖面深色封边条 + 踢脚线
-  const backCap = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w + wallT + 0.01, 0.04, wallT + 0.01), cutawayMat);
-  backCap.position.set(-wallT / 2, ROOM.h + 0.02, -ROOM.d / 2 - wallT / 2);
-  roomGroup.add(backCap);
-
-  const leftCap = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, 0.04, ROOM.d + 0.01), cutawayMat);
-  leftCap.position.set(-ROOM.w / 2 - wallT / 2, ROOM.h + 0.02, 0);
-  roomGroup.add(leftCap);
-
-  const rightCutCap = new THREE.Mesh(new THREE.BoxGeometry(0.03, ROOM.h + 0.04, wallT + 0.01), cutawayMat);
+  const rightCutCap = new THREE.Mesh(new THREE.BoxGeometry(0.03, ROOM.h + 0.045, wallT + 0.01), cutawayMat);
   rightCutCap.position.set(ROOM.w / 2 + 0.01, ROOM.h / 2 + 0.01, -ROOM.d / 2 - wallT / 2);
-  roomGroup.add(rightCutCap);
-
-  const frontCutCap = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, ROOM.h + 0.04, 0.03), cutawayMat);
-  frontCutCap.position.set(-ROOM.w / 2 - wallT / 2, ROOM.h / 2 + 0.01, ROOM.d / 2 + 0.01);
-  roomGroup.add(frontCutCap);
+  backWallGroup.add(rightCutCap);
 
   const backSkirt = new THREE.Mesh(new THREE.BoxGeometry(ROOM.w, 0.1, 0.03), trimWoodMat);
   backSkirt.position.set(0, 0.05, -ROOM.d / 2 + 0.015);
-  roomGroup.add(backSkirt);
-
-  const leftSkirt = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, ROOM.d), trimWoodMat);
-  leftSkirt.position.set(-ROOM.w / 2 + 0.015, 0.05, 0);
-  roomGroup.add(leftSkirt);
+  backWallGroup.add(backSkirt);
 
   // 后墙精密落地分格窗（位于 Zone A 后方）
-  const winW = 3.8;
-  const winH = 1.65;
-  const winX = -2.4;
-  const winY = 2.05;
+  windowGroup = new THREE.Group();
+  const winW = 4.6;
+  const winH = 1.75;
+  const winX = -3.2;
+  const winY = 2.15;
   const winZ = -ROOM.d / 2 + 0.02;
 
   const winGlass = new THREE.Mesh(
@@ -397,53 +389,74 @@ function buildRoom() {
     std(0xf6f2e9, 0.35, { emissive: 0xefead8, emissiveIntensity: 0.45 }),
   );
   winGlass.position.set(winX, winY, winZ);
-  roomGroup.add(winGlass);
+  windowGroup.add(winGlass);
 
-  // 窗框与 3x2 铝型材窗棂
   for (const sy of [-winH / 2, 0.15, winH / 2]) {
     const bar = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.08, 0.045, 0.06), metalMat);
     bar.position.set(winX, winY + sy, winZ + 0.02);
-    roomGroup.add(bar);
+    windowGroup.add(bar);
   }
   for (const sx of [-winW / 2, -winW / 6, winW / 6, winW / 2]) {
     const bar = new THREE.Mesh(new THREE.BoxGeometry(0.045, winH + 0.06, 0.06), metalMat);
     bar.position.set(winX + sx, winY, winZ + 0.02);
-    roomGroup.add(bar);
+    windowGroup.add(bar);
   }
   const winSill = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.18, 0.04, 0.14), trimWoodMat);
   winSill.position.set(winX, winY - winH / 2 - 0.02, winZ + 0.05);
-  roomGroup.add(winSill);
+  windowGroup.add(winSill);
+  backWallGroup.add(windowGroup);
+  roomGroup.add(backWallGroup);
+
+  leftWallGroup = new THREE.Group();
+  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallT, ROOM.h, ROOM.d), wallMat);
+  leftWall.position.set(-ROOM.w / 2 - wallT / 2, ROOM.h / 2, 0);
+  leftWall.receiveShadow = true;
+  leftWall.castShadow = true;
+  leftWallGroup.add(leftWall);
+
+  const leftCap = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, 0.045, ROOM.d + 0.01), cutawayMat);
+  leftCap.position.set(-ROOM.w / 2 - wallT / 2, ROOM.h + 0.022, 0);
+  leftWallGroup.add(leftCap);
+
+  const frontCutCap = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, 0.03 + ROOM.h + 0.015, 0.03), cutawayMat);
+  frontCutCap.position.set(-ROOM.w / 2 - wallT / 2, ROOM.h / 2 + 0.01, ROOM.d / 2 + 0.01);
+  leftWallGroup.add(frontCutCap);
+
+  const leftSkirt = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, ROOM.d), trimWoodMat);
+  leftSkirt.position.set(-ROOM.w / 2 + 0.015, 0.05, 0);
+  leftWallGroup.add(leftSkirt);
+  roomGroup.add(leftWallGroup);
 
   // Zone A 双岛亚麻圆毯与黄铜镶边
   const rug = new THREE.Mesh(
-    new THREE.CircleGeometry(2.62, 64),
+    new THREE.CircleGeometry(3.25, 64),
     std(0xffffff, 0.96, { map: makeWovenRugTexture() }),
   );
   rug.rotation.x = -Math.PI / 2;
-  rug.position.set(-2.4, 0.008, -2.2);
+  rug.position.set(-3.2, 0.008, -2.8);
   rug.receiveShadow = true;
   roomGroup.add(rug);
 
   const rugTrim = new THREE.Mesh(
-    new THREE.RingGeometry(2.6, 2.65, 64),
+    new THREE.RingGeometry(3.22, 3.28, 64),
     std(0xb8864b, 0.45, { metalness: 0.45 }),
   );
   rugTrim.rotation.x = -Math.PI / 2;
-  rugTrim.position.set(-2.4, 0.009, -2.2);
+  rugTrim.position.set(-3.2, 0.009, -2.8);
   roomGroup.add(rugTrim);
 
   // Zone C — 访客长凳（横跨 Claude & Grok 身后）
   const benchGroup = new THREE.Group();
-  benchGroup.position.set(0, 0, 1.72);
-  const benchSeat = new THREE.Mesh(new THREE.BoxGeometry(3.75, 0.055, 0.5), std(0x9b7952, 0.65));
+  benchGroup.position.set(0, 0, 2.42);
+  const benchSeat = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.055, 0.52), std(0x9b7952, 0.65));
   benchSeat.position.y = 0.41;
   benchSeat.castShadow = true;
   benchSeat.receiveShadow = true;
   benchGroup.add(benchSeat);
-  const benchRail = new THREE.Mesh(new THREE.BoxGeometry(3.45, 0.03, 0.04), metalMat);
+  const benchRail = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.03, 0.04), metalMat);
   benchRail.position.y = 0.24;
   benchGroup.add(benchRail);
-  for (const bx of [-1.65, 0, 1.65]) {
+  for (const bx of [-2.15, 0, 2.15]) {
     for (const bz of [-0.18, 0.18]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.39, 0.045), metalMat);
       leg.position.set(bx, 0.195, bz);
@@ -451,14 +464,14 @@ function buildRoom() {
       benchGroup.add(leg);
     }
   }
-  const benchShadow = makeContactShadow(4.1, 0.9, 0.22);
+  const benchShadow = makeContactShadow(5.1, 0.92, 0.22);
   benchShadow.position.set(0, 0.012, 0);
   benchGroup.add(benchShadow);
   roomGroup.add(benchGroup);
 
   // 左墙 Braun 模块化开放书架
   const shelfGroup = new THREE.Group();
-  shelfGroup.position.set(-ROOM.w / 2 + 0.3, 0, 1.55);
+  shelfGroup.position.set(-ROOM.w / 2 + 0.34, 0, 1.8);
   for (const sz of [-0.88, 0.88]) {
     const upright = new THREE.Mesh(new THREE.BoxGeometry(0.42, 2.15, 0.035), metalMat);
     upright.position.set(0, 1.075, sz);
@@ -490,9 +503,9 @@ function buildRoom() {
   shelfGroup.add(shelfShadow);
   roomGroup.add(shelfGroup);
 
-  // 右侧 Bauhaus 休息沙发
+  // 右侧 Bauhaus 休息沙发 + 胡桃木茶几
   const sofaGroup = new THREE.Group();
-  sofaGroup.position.set(4.15, 0, 1.85);
+  sofaGroup.position.set(5.4, 0, 2.5);
   const sofaMat = std(0x6e6256, 0.92);
   const cushionMat = std(0x7d7063, 0.9);
   for (const sx of [-0.88, 0.88]) {
@@ -527,6 +540,25 @@ function buildRoom() {
   sofaGroup.add(sofaShadow);
   roomGroup.add(sofaGroup);
 
+  const tableGroup = new THREE.Group();
+  tableGroup.position.set(5.4, 0, 1.35);
+  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.04, 0.62), trimWoodMat);
+  tableTop.position.y = 0.34;
+  tableTop.castShadow = true;
+  tableTop.receiveShadow = true;
+  tableGroup.add(tableTop);
+  for (const tx of [-0.48, 0.48]) {
+    for (const tz of [-0.22, 0.22]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.016, 0.32, 10), metalMat);
+      leg.position.set(tx, 0.16, tz);
+      tableGroup.add(leg);
+    }
+  }
+  const tableShadow = makeContactShadow(1.35, 0.85, 0.2);
+  tableShadow.position.set(0, 0.012, 0);
+  tableGroup.add(tableShadow);
+  roomGroup.add(tableGroup);
+
   // Lathe 陶土花盆 + 雕塑感球状绿植
   const potProfile = [
     [0.01, 0.0],
@@ -542,7 +574,7 @@ function buildRoom() {
   const leafMat = std(0x467346, 0.85);
   const leafLightMat = std(0x568754, 0.85);
 
-  for (const [x, z] of [[-4.92, -3.22], [4.85, -3.05]]) {
+  for (const [x, z] of [[-6.45, -4.45], [6.45, -4.35]]) {
     const plant = new THREE.Group();
     plant.position.set(x, 0, z);
     const pot = new THREE.Mesh(potGeo, potMat);
@@ -572,6 +604,21 @@ function buildRoom() {
   }
 
   scene.add(roomGroup);
+}
+
+function updateCutawayWalls() {
+  if (!backWallGroup || !leftWallGroup) return;
+  const hideBack = camera.position.z < -ROOM.d / 2 + 2.0;
+  const hideLeft = camera.position.x < -ROOM.w / 2 + 2.0;
+  const targetBack = hideBack ? 0.045 : 1.0;
+  const targetLeft = hideLeft ? 0.045 : 1.0;
+  const factor = REDUCED_MOTION ? 1.0 : 0.14;
+
+  backWallGroup.scale.y = THREE.MathUtils.lerp(backWallGroup.scale.y, targetBack, factor);
+  leftWallGroup.scale.y = THREE.MathUtils.lerp(leftWallGroup.scale.y, targetLeft, factor);
+  if (windowGroup) {
+    windowGroup.visible = backWallGroup.scale.y > 0.35;
+  }
 }
 
 function buildAvatar(agent) {
@@ -893,6 +940,42 @@ function renderDrawer() {
     agentsPanel.appendChild(btn);
   }
 
+  if (boss) {
+    const bossBtn = document.createElement('button');
+    bossBtn.type = 'button';
+    bossBtn.className = 'agent-row boss-row';
+    if (state.inspectingBoss) bossBtn.classList.add('active');
+
+    const topLine = document.createElement('div');
+    topLine.className = 'agent-row-top';
+    const left = document.createElement('span');
+    left.className = 'agent-row-id';
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = '#d68a28';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'agent-name';
+    nameEl.textContent = '老板 · 宇航员奶龙';
+    const zoneBadge = document.createElement('span');
+    zoneBadge.className = 'zone-tag boss-tag';
+    zoneBadge.textContent = 'BOSS';
+    left.append(dot, nameEl, zoneBadge);
+
+    const modeTag = document.createElement('span');
+    modeTag.className = 'agent-model-tag';
+    modeTag.textContent = boss.isPaused() ? '已暂停' : '巡逻中';
+    topLine.append(left, modeTag);
+
+    const taskLine = document.createElement('div');
+    taskLine.className = 'agent-row-task';
+    taskLine.id = 'boss-drawer-status';
+    taskLine.textContent = boss.getStatus();
+
+    bossBtn.append(topLine, taskLine);
+    bossBtn.addEventListener('click', focusBoss);
+    agentsPanel.appendChild(bossBtn);
+  }
+
   // 2. 模型选择器
   const modelsPanel = document.getElementById('panel-models');
   modelsPanel.replaceChildren();
@@ -988,6 +1071,8 @@ function selectModel(agentId, model) {
 function focusAgent(agentId) {
   const { x, z } = LAYOUT[agentId];
   controls.autoRotate = false;
+  state.followBoss = false;
+  state.inspectingBoss = false;
   const autoBtn = document.querySelector('.view-btn[data-view="auto"]');
   if (autoBtn) {
     autoBtn.classList.remove('active');
@@ -1003,7 +1088,99 @@ function focusAgent(agentId) {
   openInspector(agentId);
 }
 
+function focusBoss() {
+  if (!boss) return;
+  controls.autoRotate = false;
+  const autoBtn = document.querySelector('.view-btn[data-view="auto"]');
+  if (autoBtn) {
+    autoBtn.classList.remove('active');
+    autoBtn.setAttribute('aria-pressed', 'false');
+  }
+  state.currentAgent = null;
+  state.inspectingBoss = true;
+  const bp = boss.root.position;
+  const yaw = boss.root.rotation.y;
+  const fwdX = Math.sin(yaw);
+  const fwdZ = Math.cos(yaw);
+  state.cameraGoal = {
+    pos: new THREE.Vector3(bp.x + fwdX * 4.0 + fwdZ * 1.45, 2.35, bp.z + fwdZ * 4.0 - fwdX * 1.45),
+    target: new THREE.Vector3(bp.x, 1.15, bp.z),
+  };
+  updateDock();
+  renderDrawer();
+  openBossInspector();
+}
+
+function openBossInspector() {
+  if (!boss) return;
+  document.getElementById('inspector-dot').style.background = '#d68a28';
+  document.getElementById('inspector-title').textContent = '老板 · 宇航员奶龙';
+
+  const body = document.getElementById('inspector-body');
+  body.replaceChildren();
+
+  const statusBlock = document.createElement('div');
+  statusBlock.className = 'inspector-status';
+  const statusLine = document.createElement('div');
+  statusLine.className = 'inspector-status-text';
+  statusLine.id = 'boss-inspector-status';
+  statusLine.textContent = boss.getStatus();
+  statusBlock.appendChild(statusLine);
+  body.appendChild(statusBlock);
+
+  const grid = document.createElement('div');
+  grid.className = 'spec-grid';
+  const specs = [
+    ['角色定位', '工作室老板'],
+    ['巡逻路线', 'Zone C → Zone A → Zone B'],
+    ['巡逻状态', boss.isPaused() ? '已暂停' : '自动巡逻中'],
+    ['跟拍视角', state.followBoss ? '已开启跟随' : '自由视角'],
+  ];
+  for (const [k, v] of specs) {
+    const cell = document.createElement('div');
+    cell.className = 'spec-cell';
+    const label = document.createElement('div');
+    label.className = 'spec-k';
+    label.textContent = k;
+    const val = document.createElement('div');
+    val.className = 'spec-v';
+    val.textContent = v;
+    cell.append(label, val);
+    grid.appendChild(cell);
+  }
+  body.appendChild(grid);
+
+  const actions = document.createElement('div');
+  actions.className = 'inspector-actions';
+
+  const followBtn = document.createElement('button');
+  followBtn.type = 'button';
+  followBtn.id = 'boss-follow-btn';
+  followBtn.textContent = state.followBoss ? '取消跟随' : '跟随视角';
+  followBtn.addEventListener('click', () => {
+    state.followBoss = !state.followBoss;
+    if (state.followBoss) focusBoss();
+    else openBossInspector();
+  });
+
+  const pauseBtn = document.createElement('button');
+  pauseBtn.type = 'button';
+  pauseBtn.className = 'secondary';
+  pauseBtn.id = 'boss-pause-btn';
+  pauseBtn.textContent = boss.isPaused() ? '继续巡逻' : '暂停巡逻';
+  pauseBtn.addEventListener('click', () => {
+    boss.togglePause();
+    renderDrawer();
+    openBossInspector();
+  });
+
+  actions.append(followBtn, pauseBtn);
+  body.appendChild(actions);
+  document.getElementById('inspector').hidden = false;
+}
+
 function openInspector(agentId) {
+  state.inspectingBoss = false;
   const agent = state.config.agents.find((a) => a.id === agentId);
   if (!agent) return;
   const snap = SNAPSHOT[agentId];
@@ -1203,17 +1380,18 @@ function setView(name) {
     return;
   }
   controls.autoRotate = false;
+  state.followBoss = false;
   document.querySelectorAll('.view-btn').forEach((b) => {
     const active = b.dataset.view === name;
     b.classList.toggle('active', active);
     if (b.dataset.view === 'auto') b.setAttribute('aria-pressed', 'false');
   });
   if (name === 'panoramic') {
-    state.cameraGoal = { pos: new THREE.Vector3(8.4, 6.8, 11.0), target: new THREE.Vector3(-0.2, 0.7, 0) };
+    state.cameraGoal = { pos: new THREE.Vector3(10.6, 8.2, 13.8), target: new THREE.Vector3(-0.4, 0.7, 0) };
   } else if (name === 'closeup') {
-    state.cameraGoal = { pos: new THREE.Vector3(-2.4, 2.2, 1.6), target: new THREE.Vector3(-2.4, 1.0, -2.2) };
+    state.cameraGoal = { pos: new THREE.Vector3(-3.2, 2.4, 1.4), target: new THREE.Vector3(-3.2, 1.0, -2.8) };
   } else if (name === 'top') {
-    state.cameraGoal = { pos: new THREE.Vector3(-2.25, 19.5, 0.01), target: new THREE.Vector3(-2.25, 0, -0.35) };
+    state.cameraGoal = { pos: new THREE.Vector3(-2.6, 24.5, 0.01), target: new THREE.Vector3(-2.6, 0, -0.3) };
   }
 }
 
@@ -1322,7 +1500,11 @@ function initUI() {
     pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(pickables, false);
-    if (hits.length > 0) focusAgent(hits[0].object.userData.agentId);
+    if (hits.length > 0) {
+      const hitData = hits[0].object.userData;
+      if (hitData.boss) focusBoss();
+      else if (hitData.agentId) focusAgent(hitData.agentId);
+    }
   });
 
   window.addEventListener('resize', () => {
@@ -1334,17 +1516,51 @@ function initUI() {
 }
 
 const clock = new THREE.Clock();
+let elapsed = 0;
 
 function animate() {
   requestAnimationFrame(animate);
-  const t = clock.getElapsedTime();
+  const dt = Math.min(clock.getDelta(), 0.05);
+  elapsed += dt;
 
   if (!REDUCED_MOTION) {
     for (const rig of avatarRigs) {
       if (!rig.active) continue;
-      rig.group.position.y = rig.baseY + Math.sin(t * 2.1 + rig.phase) * 0.008;
+      rig.group.position.y = rig.baseY + Math.sin(elapsed * 2.1 + rig.phase) * 0.008;
     }
   }
+
+  if (boss) {
+    boss.update(dt, elapsed);
+    const statusText = boss.getStatus();
+    const drawerStatus = document.getElementById('boss-drawer-status');
+    if (drawerStatus && drawerStatus.textContent !== statusText) {
+      drawerStatus.textContent = statusText;
+    }
+    const inspStatus = document.getElementById('boss-inspector-status');
+    if (inspStatus && inspStatus.textContent !== statusText) {
+      inspStatus.textContent = statusText;
+    }
+
+    const dx = boss.root.position.x - lastBossPos.x;
+    const dz = boss.root.position.z - lastBossPos.z;
+    lastBossPos.copy(boss.root.position);
+    if (state.followBoss && (dx !== 0 || dz !== 0)) {
+      if (state.cameraGoal) {
+        state.cameraGoal.pos.x += dx;
+        state.cameraGoal.pos.z += dz;
+        state.cameraGoal.target.x += dx;
+        state.cameraGoal.target.z += dz;
+      } else {
+        camera.position.x += dx;
+        camera.position.z += dz;
+        controls.target.x += dx;
+        controls.target.z += dz;
+      }
+    }
+  }
+
+  updateCutawayWalls();
 
   if (state.cameraGoal) {
     camera.position.lerp(state.cameraGoal.pos, 0.08);
@@ -1369,6 +1585,15 @@ async function main() {
   await loadConfig();
   buildRoom();
   for (const agent of state.config.agents) buildDesk(agent);
+  boss = createBossNailong({
+    std,
+    makeContactShadow,
+    makeBossLabel,
+    reducedMotion: REDUCED_MOTION,
+  });
+  scene.add(boss.root);
+  pickables.push(...boss.pickables);
+  lastBossPos.copy(boss.root.position);
   initUI();
   renderDrawer();
   updateDock();
