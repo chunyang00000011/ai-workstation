@@ -48,6 +48,9 @@ python -m http.server 8000
 - `src/boss.js` — 巡逻 3D 宇航员奶龙老板模型与巡视状态机
 - `src/labels.js` — 桌牌（单层 1024×384）与头顶标签，含 Zone A / Zone B 错开防重叠方案
 - `config/models.json` — 六个 AI 的模型配置（已验证的才写进去，未验证的留空）
+- `vendor/three-r160-bundle.min.js` — Three.js r160 与 3 个插件（`OrbitControls`、`CSS2DRenderer`、`RoomEnvironment`）的本地内联构建产物（MIT）
+- `scripts/build_standalone.py` — 生成无外网 CDN 依赖单文件 HTML 的构建脚本
+- `dist/ai-workstation-standalone.html` — 给 Muse Space / 静态托管使用的独立单文件版（内联 Three.js r160，并在 `SNAPSHOT_CONFIG_START` / `SNAPSHOT_CONFIG_END` 独立隔离工位状态快照 JSON，在本地 `localhost` 打开时仍自动连接 `server.py`）
 - `docs/v6-design-spec.md` — 办公室 v6「Atelier Braun · 精密制图室」设计规范
 - `docs/known-issues.md` — 已知问题和待办
 

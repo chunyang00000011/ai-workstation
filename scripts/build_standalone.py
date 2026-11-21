@@ -1,9 +1,11 @@
-"""Build a faithful standalone single-file HTML bundle for Muse Space / static hosting.
+"""Build a self-contained single-file HTML bundle for Muse Space / static hosting.
 
-Reads `index.html`, `config/models.json`, `src/labels.js`, `src/boss.js`, and
-`src/app.js` verbatim, inlines the ES modules and config snapshot into
-`dist/ai-workstation-standalone.html`, and guards `/api/*` bridge probes to
-localhost only so embedded sandboxes produce zero 404 console noise.
+Reads `index.html`, `config/models.json`, `vendor/three-r160-bundle.min.js`,
+`src/labels.js`, `src/boss.js`, and `src/app.js`, strips external Google Fonts
+links and `<script type="importmap">`, embeds Three.js r160 and the ES modules
+into `dist/ai-workstation-standalone.html`, isolates the snapshot config JSON in
+`#snapshot-config`, and guards `/api/*` bridge probes to localhost only so
+embedded sandboxes produce zero external requests or 404 console noise.
 """
 
 from __future__ import annotations
@@ -13,12 +15,12 @@ from pathlib import Path
 import re
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+VENDOR_THREE_PATH = REPO_ROOT / "vendor" / "three-r160-bundle.min.js"
 OUT_PATH = REPO_ROOT / "dist" / "ai-workstation-standalone.html"
 
-MERGED_IMPORTS = """import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';"""
+GOOGLE_FONTS_BLOCK = """<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">\n"""
 
 
 def _strip_imports_and_export(source: str) -> str:
@@ -40,11 +42,25 @@ def _strip_imports_and_export(source: str) -> str:
     return "\n".join(out_lines).strip()
 
 
-def _inline_app_js(app_src: str, cfg_json: str) -> str:
-    # Strip top import block from app.js up to the first blank line after imports.
+def _strip_external_head_deps(index_html: str) -> str:
+    if GOOGLE_FONTS_BLOCK not in index_html:
+        raise RuntimeError("Could not find expected Google Fonts <link> block in index.html")
+    html = index_html.replace(GOOGLE_FONTS_BLOCK, "", 1)
+
+    html, importmap_count = re.subn(
+        r'\n?<script type="importmap">[\s\S]*?</script>\n?',
+        "\n",
+        html,
+        count=1,
+    )
+    if importmap_count != 1:
+        raise RuntimeError(f"Expected 1 importmap block in index.html, removed {importmap_count}")
+    return html
+
+
+def _inline_app_js(app_src: str) -> str:
     stripped = _strip_imports_and_export(app_src)
 
-    # Inject INLINE_CONFIG and update loadConfig() to use it without network fetch.
     old_load_config = """async function loadConfig() {
   try {
     const res = await fetch('./config/models.json');
@@ -60,73 +76,136 @@ def _inline_app_js(app_src: str, cfg_json: str) -> str:
   }
 }"""
 
-    new_load_config = f"""const INLINE_CONFIG = {cfg_json};
-
-async function loadConfig() {{
-  if (INLINE_CONFIG && Array.isArray(INLINE_CONFIG.agents)) {{
+    new_load_config = """async function loadConfig() {
+  if (INLINE_CONFIG && Array.isArray(INLINE_CONFIG.agents)) {
     state.config = INLINE_CONFIG;
-  }}
-  for (const agent of state.config.agents) {{
+  }
+  for (const agent of state.config.agents) {
     state.selectedModels[agent.id] = agent.defaultModel;
-  }}
-}}"""
+  }
+}"""
 
     if old_load_config not in stripped:
         raise RuntimeError("Could not find expected loadConfig() block in src/app.js")
     stripped = stripped.replace(old_load_config, new_load_config, 1)
 
-    # Guard local CLI bridge probes so embedded non-localhost sandboxes skip /api/* cleanly.
     local_guard = (
         "const IS_LOCAL_HOST = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);\n\n"
     )
+    codex_target = "async function loadCodexBridgeStatus() {\n  try {"
+    if codex_target not in stripped:
+        raise RuntimeError("Could not find loadCodexBridgeStatus() in src/app.js")
     stripped = stripped.replace(
-        "async function loadCodexBridgeStatus() {\n  try {",
+        codex_target,
         f"{local_guard}async function loadCodexBridgeStatus() {{\n  if (!IS_LOCAL_HOST) return;\n  try {{",
         1,
     )
+
+    agy_target = "async function loadAntigravityBridgeStatus() {\n  try {"
+    if agy_target not in stripped:
+        raise RuntimeError("Could not find loadAntigravityBridgeStatus() in src/app.js")
     stripped = stripped.replace(
-        "async function loadAntigravityBridgeStatus() {\n  try {",
+        agy_target,
         "async function loadAntigravityBridgeStatus() {\n  if (!IS_LOCAL_HOST) return;\n  try {",
         1,
     )
+
+    dom_ready_main = """\nif (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { main(); }, { once: true });
+} else {
+  main();
+}"""
+    stripped, main_count = re.subn(r"\nmain\(\);\s*$", lambda _: dom_ready_main, stripped, count=1)
+    if main_count != 1:
+        raise RuntimeError(f"Expected 1 trailing main(); call in src/app.js, replaced {main_count}")
+
     return stripped
 
 
+def _verify_standalone_html(html: str, cfg_json: str, vendor_three_js: str, app_bundle_js: str) -> None:
+    if "</script" in cfg_json.lower():
+        raise ValueError("Snapshot config contains unsafe '</script' sequence")
+    if "</script" in vendor_three_js.lower():
+        raise ValueError("Vendor Three.js bundle contains unsafe '</script' sequence")
+    if "</script" in app_bundle_js.lower():
+        raise ValueError("Bundled app JS contains unsafe '</script' sequence")
+
+    forbidden = [
+        "cdn.jsdelivr.net",
+        "fonts.googleapis.com",
+        "fonts.gstatic.com",
+        'type="importmap"',
+    ]
+    for marker in forbidden:
+        if marker in html:
+            raise AssertionError(f"Standalone HTML must not contain {marker!r}")
+
+    required = [
+        "SNAPSHOT_CONFIG_START",
+        "SNAPSHOT_CONFIG_END",
+        'id="snapshot-config"',
+        'id="three-r160-bundle"',
+        'id="ai-workstation-app"',
+        "IS_LOCAL_HOST",
+        "Orchestrator Gemini 4 Neon Extra High",
+        "状态快照（非持续同步）",
+    ]
+    for marker in required:
+        if marker not in html:
+            raise AssertionError(f"Standalone HTML missing required marker {marker!r}")
+
+
 def build() -> Path:
-    index_html = (REPO_ROOT / "index.html").read_text(encoding="utf-8")
+    if not VENDOR_THREE_PATH.is_file():
+        raise FileNotFoundError(f"Missing vendored Three.js bundle: {VENDOR_THREE_PATH}")
+
+    index_html = _strip_external_head_deps((REPO_ROOT / "index.html").read_text(encoding="utf-8"))
     cfg_raw = (REPO_ROOT / "config" / "models.json").read_text(encoding="utf-8")
-    # Re-serialize cleanly to guarantee valid compact JSON literal inside <script>.
-    cfg_json = json.dumps(json.loads(cfg_raw), ensure_ascii=False, indent=2)
+    cfg_json = json.dumps(json.loads(cfg_raw), ensure_ascii=False, indent=2).replace("</", r"<\/")
+    vendor_three_js = VENDOR_THREE_PATH.read_text(encoding="utf-8").strip()
 
     labels_js = _strip_imports_and_export((REPO_ROOT / "src" / "labels.js").read_text(encoding="utf-8"))
     boss_js = _strip_imports_and_export((REPO_ROOT / "src" / "boss.js").read_text(encoding="utf-8"))
-    app_js = _inline_app_js((REPO_ROOT / "src" / "app.js").read_text(encoding="utf-8"), cfg_json)
+    app_js = _inline_app_js((REPO_ROOT / "src" / "app.js").read_text(encoding="utf-8"))
 
-    bundled_js = "\n\n".join(
+    app_bundle_js = "\n\n".join(
         [
-            MERGED_IMPORTS,
+            "(() => {",
+            "'use strict';",
+            "const { THREE, OrbitControls, CSS2DRenderer, CSS2DObject, RoomEnvironment } = globalThis.__AI_WORKSTATION_THREE__;",
+            "const INLINE_CONFIG = JSON.parse(document.getElementById('snapshot-config')?.textContent || 'null');",
             "// --- inlined from src/labels.js ---",
             labels_js,
             "// --- inlined from src/boss.js ---",
             boss_js,
             "// --- inlined from src/app.js ---",
             app_js,
+            "})();",
         ]
     )
 
-    # Escape any accidental closing script sequence in string literals if ever added later.
-    if "</script" in bundled_js.lower():
-        raise ValueError("Bundled JS contains unsafe '</script' sequence")
+    replacement = "\n".join(
+        [
+            "<!-- SNAPSHOT_CONFIG_START: Muse 状态快照同步区（仅修改此 JSON 即可更新工位状态、模型与当前任务，无需改动下方 3D 引擎代码） -->",
+            '<script id="snapshot-config" type="application/json">',
+            cfg_json,
+            "</script>",
+            "<!-- SNAPSHOT_CONFIG_END -->",
+            '<script id="three-r160-bundle">',
+            vendor_three_js,
+            "</script>",
+            '<script id="ai-workstation-app">',
+            app_bundle_js,
+            "</script>",
+        ]
+    )
 
     script_tag = '<script type="module" src="./src/app.js"></script>'
     if script_tag not in index_html:
         raise RuntimeError(f"Expected {script_tag!r} in index.html")
 
-    standalone_html = index_html.replace(
-        script_tag,
-        f'<script type="module">\n{bundled_js}\n</script>',
-        1,
-    )
+    standalone_html = index_html.replace(script_tag, replacement, 1)
+    _verify_standalone_html(standalone_html, cfg_json, vendor_three_js, app_bundle_js)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(standalone_html, encoding="utf-8")
