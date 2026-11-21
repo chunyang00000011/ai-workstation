@@ -9,6 +9,12 @@ export const ZONE_A_STAGGER = {
   Gemini: { dy: 0.42, dx: 0.35, zIndex: 11 },
 };
 
+// Zone B（OpenAI 双工位：GPT 网页版与 Codex）同样错开，避免旋转视角时头顶标签互盖。
+export const ZONE_B_STAGGER = {
+  'GPT 网页版': { dy: 0.68, dx: -0.15, zIndex: 9 },
+  Codex: { dy: 0.42, dx: 0.15, zIndex: 8 },
+};
+
 const PLATE_W = 1024;
 const PLATE_H = 384;
 const FONT_STACK = '"IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif';
@@ -107,11 +113,11 @@ export function makeHeadLabel(agent, defaultModel, statusColorHex = '#8a8277') {
   obj.userData.nudgeY = 0;
 
   // Three.js r160 CSS2DRenderer 每帧会按 renderOrder 覆写 zIndex，因此必须设置 renderOrder。
-  const stagger = ZONE_A_STAGGER[agent.name];
+  const stagger = ZONE_A_STAGGER[agent.name] || ZONE_B_STAGGER[agent.name];
   if (stagger) {
     obj.renderOrder = stagger.zIndex;
     anchor.style.zIndex = String(stagger.zIndex);
-    card.dataset.zone = 'A';
+    card.dataset.zone = ZONE_A_STAGGER[agent.name] ? 'A' : 'B';
   }
   return obj;
 }

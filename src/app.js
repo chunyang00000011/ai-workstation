@@ -9,6 +9,7 @@ import {
   makeLeaderLine,
   resolveZoneAOverlap,
   ZONE_A_STAGGER,
+  ZONE_B_STAGGER,
 } from './labels.js';
 import { createBossNailong } from './boss.js';
 
@@ -24,11 +25,12 @@ const FALLBACK_CONFIG = {
   schemaVersion: 3,
   updated: '2026-11-21',
   agents: [
-    { id: 1, name: 'GPT', provider: 'OpenAI', plan: 'Plus', status: 'verified', defaultModel: 'GPT-6', models: ['GPT-6', 'GPT-5.6 Sol'], thinkingLevel: 'Medium', lastVerifiedAt: '2026-11-21' },
-    { id: 2, name: 'Claude', provider: 'Anthropic', plan: null, status: 'pending', defaultModel: null, models: [], thinkingLevel: null, lastVerifiedAt: null },
-    { id: 3, name: 'Gemini', provider: 'Google', plan: 'Google AI Ultra', status: 'verified', defaultModel: '4 Neon', models: ['自动', '4 Hydrogen', '4 Neon', '4 Carbon'], thinkingLevel: 'Low', lastVerifiedAt: '2026-11-21' },
-    { id: 4, name: 'Grok', provider: 'xAI', plan: null, status: 'pending', defaultModel: null, models: [], thinkingLevel: null, lastVerifiedAt: null },
-    { id: 5, name: 'Antigravity', provider: 'Google', plan: 'Google AI Ultra', status: 'verified', defaultModel: 'Gemini 4 Neon High', models: ['Gemini 4 Neon High', '4 Carbon Medium', '4 Argon Medium', '4 Hydrogen Medium', '3.8 Flash Medium', 'Claude Opus 5.5 Medium', 'Claude Sonnet 5.5 Medium', 'GPT-OSS 120B Medium'], thinkingLevel: 'High', lastVerifiedAt: '2026-11-21' },
+    { id: 1, name: 'GPT 网页版', aliases: ['GPT', 'ChatGPT'], surface: 'Web', provider: 'OpenAI', plan: 'Plus', status: 'verified', defaultModel: 'GPT-6', models: ['GPT-6', 'GPT-5.6 Sol'], thinkingLevel: 'Medium', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
+    { id: 2, name: 'Claude', provider: 'Anthropic', plan: null, status: 'pending', defaultModel: null, models: [], thinkingLevel: null, lastVerifiedAt: null, allowCustomModel: true },
+    { id: 3, name: 'Gemini', provider: 'Google', plan: 'Google AI Ultra', status: 'verified', defaultModel: '4 Neon', models: ['自动', '4 Hydrogen', '4 Neon', '4 Carbon'], thinkingLevel: 'Low', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
+    { id: 4, name: 'Grok', provider: 'xAI', plan: null, status: 'pending', defaultModel: null, models: [], thinkingLevel: null, lastVerifiedAt: null, allowCustomModel: true },
+    { id: 5, name: 'Antigravity', provider: 'Google', plan: 'Google AI Ultra', status: 'verified', defaultModel: 'Gemini 4 Neon High', models: ['Gemini 4 Neon High', '4 Carbon Medium', '4 Argon Medium', '4 Hydrogen Medium', '3.8 Flash Medium', 'Claude Opus 5.5 Medium', 'Claude Sonnet 5.5 Medium', 'GPT-OSS 120B Medium'], thinkingLevel: 'High', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
+    { id: 6, name: 'Codex', aliases: ['Codex CLI', 'OpenAI Codex'], surface: 'CLI / Desktop', bridge: 'codex-cli', provider: 'OpenAI', plan: 'Plus / Codex CLI', status: 'verified', defaultModel: 'GPT-6.2-Sol', models: ['GPT-6.2-Sol', 'GPT-6.2-Astra', 'GPT-6.1 Terra', 'GPT-6.1-Sol', 'GPT-6-Astra', 'GPT-6-Sol', 'GPT-6-Luna', 'GPT-5.6-Sol', 'GPT-5.6-Terra', 'GPT-5.6-Luna'], thinkingLevel: 'High', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
   ],
 };
 
@@ -39,18 +41,20 @@ const SNAPSHOT = {
   3: { status: '思考中', task: 'BatchNorm 与 MLP 问答', progress: 40 },
   4: { status: '待核对', task: '未登录，仅支持自定义模型', progress: 0 },
   5: { status: '工作中', task: 'PyTorch 进阶学习规划', progress: 78 },
+  6: { status: '工作中', task: 'Codex CLI 待命（需启动 server.py 实连）', progress: 85 },
 };
 
 const STATUS_COLORS = { '工作中': 0x2e7d4f, '思考中': 0xc28516, '待核对': 0x8a8277 };
 const STATUS_HEX = { '工作中': '#2e7d4f', '思考中': '#c28516', '待核对': '#8a8277' };
-const ACCENTS = { GPT: 0x2e7d4f, Claude: 0xb86238, Gemini: 0x2f63c6, Grok: 0x2b2620, Antigravity: 0xd65a28 };
-const ACCENT_HEX = { GPT: '#2e7d4f', Claude: '#b86238', Gemini: '#2f63c6', Grok: '#2b2620', Antigravity: '#d65a28' };
+const ACCENTS = { 'GPT 网页版': 0x2e7d4f, GPT: 0x2e7d4f, Codex: 0x1f6e7a, Claude: 0xb86238, Gemini: 0x2f63c6, Grok: 0x2b2620, Antigravity: 0xd65a28 };
+const ACCENT_HEX = { 'GPT 网页版': '#2e7d4f', GPT: '#2e7d4f', Codex: '#1f6e7a', Claude: '#b86238', Gemini: '#2f63c6', Grok: '#2b2620', Antigravity: '#d65a28' };
 
-// 工位布局：Zone A 双岛（Antigravity 左半、Gemini 右半），Zone B GPT 独立桌，Zone C 访客长凳。
+// 工位布局：Zone A Ultra 双岛，Zone B OpenAI 双工位（GPT 网页版 + Codex），Zone C 访客长凳。
 const LAYOUT = {
   5: { x: -4.9, z: -2.8, zone: 'A' },
   3: { x: -1.5, z: -2.8, zone: 'A' },
-  1: { x: 4.5, z: -1.8, zone: 'B', rotY: -0.35 },
+  1: { x: 2.35, z: -2.75, zone: 'B', rotY: -0.15 },
+  6: { x: 5.15, z: -2.05, zone: 'B', rotY: -0.35 },
   2: { x: -1.9, z: 3.2, zone: 'C' },
   4: { x: 1.9, z: 3.2, zone: 'C' },
 };
@@ -63,6 +67,13 @@ const state = {
   cameraGoal: null,
   followBoss: false,
   inspectingBoss: false,
+  codexBridge: {
+    connected: false,
+    cliVersion: null,
+    modelSlugs: {},
+    latestSession: null,
+    busy: false,
+  },
 };
 
 const container = document.getElementById('scene-container');
@@ -148,6 +159,7 @@ const pickables = []; // Mesh[] with userData.agentId or userData.boss
 const deskPlates = {}; // agentId -> { mesh, texture }
 const headLabels = {}; // agentId -> CSS2DObject
 const zoneALabels = {}; // agent.name -> CSS2DObject
+const zoneBLabels = {}; // agent.name -> CSS2DObject
 const avatarRigs = []; // { group, baseY, phase, active }
 
 let contactShadowTex = null;
@@ -445,6 +457,24 @@ function buildRoom() {
   rugTrim.position.set(-3.2, 0.009, -2.8);
   roomGroup.add(rugTrim);
 
+  // Zone B OpenAI 双工位区（GPT 网页版 + Codex）地垫与青灰镶边
+  const zoneBTrim = new THREE.Mesh(
+    new THREE.PlaneGeometry(5.1, 2.7),
+    std(0x1f6e7a, 0.65),
+  );
+  zoneBTrim.rotation.x = -Math.PI / 2;
+  zoneBTrim.position.set(3.75, 0.0075, -2.4);
+  roomGroup.add(zoneBTrim);
+
+  const zoneBMat = new THREE.Mesh(
+    new THREE.PlaneGeometry(5.0, 2.6),
+    std(0xe3ded3, 0.94),
+  );
+  zoneBMat.rotation.x = -Math.PI / 2;
+  zoneBMat.position.set(3.75, 0.009, -2.4);
+  zoneBMat.receiveShadow = true;
+  roomGroup.add(zoneBMat);
+
   // Zone C — 访客长凳（横跨 Claude & Grok 身后）
   const benchGroup = new THREE.Group();
   benchGroup.position.set(0, 0, 2.42);
@@ -574,7 +604,7 @@ function buildRoom() {
   const leafMat = std(0x467346, 0.85);
   const leafLightMat = std(0x568754, 0.85);
 
-  for (const [x, z] of [[-6.45, -4.45], [6.45, -4.35]]) {
+  for (const [x, z] of [[-6.45, -4.45], [6.55, -4.45]]) {
     const plant = new THREE.Group();
     plant.position.set(x, 0, z);
     const pot = new THREE.Mesh(potGeo, potMat);
@@ -814,8 +844,8 @@ function buildDesk(agent) {
     g.add(chairShadow);
   }
 
-  // 头顶标签与引线挂在工位组内（本地坐标），确保带旋转角工位（如 GPT）也能对齐头顶。
-  const stagger = ZONE_A_STAGGER[agent.name];
+  // 头顶标签与引线挂在工位组内（本地坐标），确保带旋转角工位（如 GPT 网页版 / Codex）也能对齐头顶。
+  const stagger = ZONE_A_STAGGER[agent.name] || ZONE_B_STAGGER[agent.name];
   const label = makeHeadLabel(agent, defaultModel, STATUS_HEX[snap.status]);
   const avatarTopY = 1.48;
   const localAnchor = new THREE.Vector3(
@@ -827,7 +857,8 @@ function buildDesk(agent) {
   g.add(label);
   headLabels[agent.id] = label;
   if (stagger) {
-    zoneALabels[agent.name] = label;
+    if (ZONE_A_STAGGER[agent.name]) zoneALabels[agent.name] = label;
+    if (ZONE_B_STAGGER[agent.name]) zoneBLabels[agent.name] = label;
     const localTop = new THREE.Vector3(0, avatarTopY, -0.78);
     g.add(makeLeaderLine(localTop, localAnchor));
   }
@@ -912,6 +943,13 @@ function renderDrawer() {
     zoneBadge.className = 'zone-tag';
     zoneBadge.textContent = zone;
     left.append(dot, nameEl, zoneBadge);
+
+    if (agent.bridge === 'codex-cli' && state.codexBridge.connected) {
+      const cliBadge = document.createElement('span');
+      cliBadge.className = 'zone-tag cli-tag';
+      cliBadge.textContent = 'CLI';
+      left.appendChild(cliBadge);
+    }
 
     const modelTag = document.createElement('span');
     modelTag.className = 'agent-model-tag';
@@ -1216,7 +1254,14 @@ function openInspector(agentId) {
     ['订阅套餐', agent.plan ?? '未接入'],
     ['思考等级', agent.thinkingLevel ?? '—'],
     ['当前模型', model ?? '待核对（仅自定义）'],
-    ['核对日期', agent.lastVerifiedAt ? `${agent.lastVerifiedAt} 验证` : '未验证'],
+    [
+      agent.bridge === 'codex-cli' ? '连接方式' : agent.surface === 'Web' ? '核对 · 入口' : '核对日期',
+      agent.bridge === 'codex-cli'
+        ? (state.codexBridge.connected ? `本机 Codex CLI（${state.codexBridge.cliVersion || '已连'}）` : '离线快照（需 server.py）')
+        : agent.surface === 'Web'
+          ? `${agent.lastVerifiedAt ? `${agent.lastVerifiedAt} 验证` : '未验证'} · 网页版`
+          : (agent.lastVerifiedAt ? `${agent.lastVerifiedAt} 验证` : '未验证'),
+    ],
   ];
   for (const [k, v] of specs) {
     const cell = document.createElement('div');
@@ -1284,11 +1329,20 @@ function parseDialogueInput(text) {
   }
 
   let explicitAgentId = null;
-  const agentsByNameLen = [...state.config.agents].sort((a, b) => b.name.length - a.name.length);
-  for (const agent of agentsByNameLen) {
-    const re = new RegExp(escapeRegExp(agent.name), 'i');
+  const agentMatchers = [];
+  for (const agent of state.config.agents) {
+    agentMatchers.push({ agentId: agent.id, token: agent.name });
+    if (Array.isArray(agent.aliases)) {
+      for (const alias of agent.aliases) {
+        agentMatchers.push({ agentId: agent.id, token: alias });
+      }
+    }
+  }
+  agentMatchers.sort((a, b) => b.token.length - a.token.length);
+  for (const m of agentMatchers) {
+    const re = new RegExp(escapeRegExp(m.token), 'i');
     if (re.test(remaining)) {
-      explicitAgentId = agent.id;
+      explicitAgentId = m.agentId;
       remaining = remaining.replace(re, ' ').trim();
       break;
     }
@@ -1318,19 +1372,23 @@ function parseDialogueInput(text) {
 function openDialogue(agentId, topic) {
   state.currentAgent = agentId;
   state.currentTopic = topic;
+  state.inspectingBoss = false;
   const agent = state.config.agents.find((a) => a.id === agentId);
+  const liveTag = agent?.bridge === 'codex-cli' && state.codexBridge.connected ? '（本机 CLI 实连）' : '';
   document.getElementById('dialogue-title').textContent = agent
-    ? `新对话 · ${agent.name}`
+    ? `新对话 · ${agent.name}${liveTag}`
     : '新对话';
   document.getElementById('dialogue').hidden = false;
   updateDock();
   renderDrawer();
 }
 
-function sendDialogue() {
+async function sendDialogue() {
   const input = document.getElementById('dialogue-input');
+  const sendBtn = document.getElementById('dialogue-send');
   const text = input.value.trim();
-  if (!text) return;
+  if (!text || state.codexBridge.busy) return;
+
   const log = document.getElementById('dialogue-log');
   const userMsg = document.createElement('div');
   userMsg.className = 'msg user';
@@ -1346,8 +1404,77 @@ function sendDialogue() {
   if (parsed.topic) state.currentTopic = parsed.topic;
 
   const agent = state.config.agents.find((a) => a.id === parsed.agentId);
-  document.getElementById('dialogue-title').textContent = agent ? `新对话 · ${agent.name}` : '新对话';
+  const isLiveCodex = agent?.bridge === 'codex-cli' && state.codexBridge.connected;
+  document.getElementById('dialogue-title').textContent = agent
+    ? `新对话 · ${agent.name}${isLiveCodex ? '（本机 CLI 实连）' : ''}`
+    : '新对话';
   const model = parsed.model ?? (agent ? (state.selectedModels[agent.id] ?? agent.defaultModel) : null);
+
+  input.value = '';
+  updateDock();
+  renderDrawer();
+
+  if (isLiveCodex) {
+    state.codexBridge.busy = true;
+    sendBtn.disabled = true;
+    sendBtn.textContent = '思考中…';
+
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'msg loading';
+    loadingMsg.textContent = `Codex（${model ?? 'GPT-6.2-Sol'}）正在本机只读沙箱中处理…`;
+    log.appendChild(loadingMsg);
+    log.scrollTop = log.scrollHeight;
+
+    try {
+      const res = await fetch('./api/codex/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: parsed.topic || text,
+          model,
+          reasoning: (agent.thinkingLevel || 'high').toLowerCase(),
+        }),
+      });
+      const data = await res.json();
+      loadingMsg.remove();
+
+      const reply = document.createElement('div');
+      reply.className = 'msg';
+      const nameBold = document.createElement('b');
+      nameBold.textContent = `${agent.name}（${data.model || model || 'Codex'}）：`;
+      const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'msg-body';
+      const simSpan = document.createElement('span');
+      simSpan.className = 'sim';
+
+      if (res.ok && data.ok) {
+        bodyDiv.textContent = data.reply;
+        simSpan.textContent = `本机 Codex CLI 真实回复（只读沙箱 · ${((data.elapsedMs || 0) / 1000).toFixed(1)}s）`;
+      } else {
+        bodyDiv.textContent = data.error || `请求失败（HTTP ${res.status}）`;
+        simSpan.textContent = '调用本机 Codex CLI 未成功，请检查登录或网络代理设置。';
+      }
+      reply.append(nameBold, bodyDiv, simSpan);
+      log.appendChild(reply);
+    } catch (err) {
+      loadingMsg.remove();
+      const errReply = document.createElement('div');
+      errReply.className = 'msg';
+      const errBold = document.createElement('b');
+      errBold.textContent = `${agent.name}：`;
+      const errText = document.createElement('div');
+      errText.className = 'msg-body';
+      errText.textContent = `连接本地桥接失败：${err.message}`;
+      errReply.append(errBold, errText);
+      log.appendChild(errReply);
+    } finally {
+      state.codexBridge.busy = false;
+      sendBtn.disabled = false;
+      sendBtn.textContent = '发送';
+      log.scrollTop = log.scrollHeight;
+    }
+    return;
+  }
 
   const reply = document.createElement('div');
   reply.className = 'msg';
@@ -1358,14 +1485,13 @@ function sendDialogue() {
   );
   const simSpan = document.createElement('span');
   simSpan.className = 'sim';
-  simSpan.textContent = '办公室内部模拟回复，不是直连账号的真实会话。';
+  simSpan.textContent = agent?.bridge === 'codex-cli'
+    ? '当前未连接到 server.py（纯静态模式），使用办公室内部模拟回复。'
+    : '办公室内部模拟回复，不是直连账号的真实会话。';
   reply.append(nameBold, bodyText, document.createElement('br'), simSpan);
 
   log.appendChild(reply);
-  input.value = '';
   log.scrollTop = log.scrollHeight;
-  updateDock();
-  renderDrawer();
 }
 
 function setView(name) {
@@ -1391,7 +1517,7 @@ function setView(name) {
   } else if (name === 'closeup') {
     state.cameraGoal = { pos: new THREE.Vector3(-3.2, 2.4, 1.4), target: new THREE.Vector3(-3.2, 1.0, -2.8) };
   } else if (name === 'top') {
-    state.cameraGoal = { pos: new THREE.Vector3(-2.6, 24.5, 0.01), target: new THREE.Vector3(-2.6, 0, -0.3) };
+    state.cameraGoal = { pos: new THREE.Vector3(-2.3, 25.0, 0.01), target: new THREE.Vector3(-2.3, 0, -0.3) };
   }
 }
 
@@ -1407,6 +1533,49 @@ async function loadConfig() {
   }
   for (const agent of state.config.agents) {
     state.selectedModels[agent.id] = agent.defaultModel;
+  }
+}
+
+async function loadCodexBridgeStatus() {
+  try {
+    const res = await fetch('./api/codex/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !data.connected) return;
+
+    state.codexBridge = {
+      connected: true,
+      cliVersion: data.cliVersion || null,
+      modelSlugs: data.modelSlugs || {},
+      latestSession: data.latestSession || null,
+      busy: false,
+    };
+
+    const codexAgent = state.config.agents.find((a) => a.bridge === 'codex-cli' || a.name === 'Codex');
+    if (!codexAgent) return;
+
+    if (Array.isArray(data.models) && data.models.length > 0) {
+      codexAgent.models = data.models;
+    }
+    if (data.defaultModel) {
+      codexAgent.defaultModel = data.defaultModel;
+      state.selectedModels[codexAgent.id] = data.defaultModel;
+    }
+    if (data.thinkingLevel) {
+      codexAgent.thinkingLevel = data.thinkingLevel;
+    }
+    if (data.fetchedAt) {
+      codexAgent.lastVerifiedAt = data.fetchedAt;
+    }
+    SNAPSHOT[codexAgent.id] = {
+      status: '工作中',
+      task: data.latestSession
+        ? `本机已连 · 最近 ${data.latestSession.project}（${data.latestSession.time}）`
+        : `本机已连 · ${data.cliVersion || 'codex-cli'}`,
+      progress: 88,
+    };
+  } catch {
+    // 纯静态服务下无 /api/codex/status 时静默降级为快照模式
   }
 }
 
@@ -1579,10 +1748,12 @@ function animate() {
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
   resolveZoneAOverlap(zoneALabels.Antigravity, zoneALabels.Gemini, 8);
+  resolveZoneAOverlap(zoneBLabels['GPT 网页版'], zoneBLabels.Codex, 8);
 }
 
 async function main() {
   await loadConfig();
+  await loadCodexBridgeStatus();
   buildRoom();
   for (const agent of state.config.agents) buildDesk(agent);
   boss = createBossNailong({

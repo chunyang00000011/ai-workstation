@@ -157,13 +157,13 @@ function makeBootFoot(whiteMat, oliveMat, metalMat) {
 }
 
 const WAYPOINTS = [
-  { x: 1.65, z: -0.25, pause: 2.2, lookAt: [2.8, 2.2], text: '巡逻中 · 工作室全场巡视', walkText: '巡逻中 · 前往 Zone B' },
-  { x: 3.5, z: 0.05, pause: 2.6, lookAt: [4.5, -1.8], text: '视察 GPT · 方案对比加油', walkText: '巡逻中 · 前往休息区' },
-  { x: 2.6, z: 1.15, pause: 0, walkText: '巡逻中 · 前往 Zone C' },
+  { x: 1.35, z: -0.25, pause: 2.2, lookAt: [2.35, -2.75], text: '视察 GPT 网页版 · 方案对比加油', walkText: '巡逻中 · 前往 Codex' },
+  { x: 3.9, z: -0.15, pause: 2.6, lookAt: [5.15, -2.05], text: '视察 Codex · 代码跑得稳不稳？', walkText: '巡逻中 · 前往休息区' },
+  { x: 2.8, z: 1.15, pause: 0, walkText: '巡逻中 · 前往 Zone C' },
   { x: 0.0, z: 1.05, pause: 2.4, lookAt: [0.0, 2.9], text: '视察访客区 · 等你们入职', walkText: '巡逻中 · 前往 Zone A' },
   { x: -3.8, z: 0.85, pause: 0, walkText: '巡逻中 · 前往 Zone A' },
   { x: -4.9, z: -0.85, pause: 2.6, lookAt: [-4.9, -2.8], text: '视察 Antigravity · 干得不错', walkText: '巡逻中 · 前往 Gemini' },
-  { x: -1.5, z: -0.85, pause: 2.6, lookAt: [-1.5, -2.8], text: '视察 Gemini · 思考进度如何？', walkText: '巡逻中 · 穿过中庭' },
+  { x: -1.5, z: -0.85, pause: 2.6, lookAt: [-1.5, -2.8], text: '视察 Gemini · 思考进度如何？', walkText: '巡逻中 · 前往 Zone B' },
 ];
 
 function lerpAngle(a, b, t) {

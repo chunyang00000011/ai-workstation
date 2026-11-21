@@ -251,6 +251,11 @@
     color: #9e5d10;
     border-color: rgba(214, 138, 40, 0.35);
   }
+  .zone-tag.cli-tag {
+    background: rgba(31, 110, 122, 0.12);
+    color: #165660;
+    border-color: rgba(31, 110, 122, 0.32);
+  }
   .agent-row.boss-row {
     background: rgba(255, 250, 238, 0.65);
   }
@@ -426,6 +431,8 @@
   }
   #dialogue-log .msg { margin-bottom: 8px; line-height: 1.5; }
   #dialogue-log .msg.user { text-align: right; color: var(--ink-2); }
+  #dialogue-log .msg.loading { color: var(--ink-2); font-style: italic; }
+  #dialogue-log .msg-body { white-space: pre-wrap; word-break: break-word; margin: 4px 0; }
   #dialogue-log .msg .sim { font-size: 11px; color: var(--ink-3); }
   #dialogue-input-row {
     display: flex;
@@ -664,7 +671,7 @@
     </header>
     <div id="dialogue-log"></div>
     <div id="dialogue-input-row">
-      <input id="dialogue-input" placeholder="输入指令，例如：让 Gemini 用 4 Neon 写个总结">
+      <input id="dialogue-input" placeholder="输入指令，例如：让 Codex 用 GPT-6.2-Sol 用一句话介绍自己">
       <button type="button" id="dialogue-send">发送</button>
     </div>
   </section>
