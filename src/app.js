@@ -1654,18 +1654,18 @@ function buildRoom() {
   cartGroup.add(cartShadow);
   roomGroup.add(cartGroup);
 
-  // 右侧治愈系休闲区（暖珊瑚编织地毯 + 晴空蓝布艺沙发 + 抱枕毛毯 + 拱形暖光落地灯 + 茶歇茶几）
+  // 右侧治愈系休闲区（暖珊瑚编织地毯 + 晴空蓝布艺沙发 + 抱枕毛毯 + 拱形暖光落地灯 + 茶歇茶几，中间留出 0.88m 通行走廊）
   const loungeRug = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.0, 2.8),
+    new THREE.PlaneGeometry(3.0, 3.1),
     std(0xffffff, 0.92, { map: makeLoungeRugTexture() }),
   );
   loungeRug.rotation.x = -Math.PI / 2;
-  loungeRug.position.set(5.3, 0.0085, 1.95);
+  loungeRug.position.set(5.3, 0.0085, 1.92);
   loungeRug.receiveShadow = true;
   roomGroup.add(loungeRug);
 
   const sofaGroup = new THREE.Group();
-  sofaGroup.position.set(5.4, 0, 2.5);
+  sofaGroup.position.set(5.4, 0, 2.65);
   const sofaMat = std(0x5a87ab, 0.88);
   const cushionMat = std(0x739fc2, 0.85);
   for (const sx of [-0.88, 0.88]) {
@@ -1717,7 +1717,7 @@ function buildRoom() {
 
   // 拱形钓鱼落地暖光灯
   const floorLamp = new THREE.Group();
-  floorLamp.position.set(6.55, 0, 2.95);
+  floorLamp.position.set(6.55, 0, 3.1);
   const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.04, 20), brassMat);
   lampBase.position.y = 0.02;
   floorLamp.add(lampBase);
@@ -1741,7 +1741,7 @@ function buildRoom() {
 
   // 胡桃原木茶几 + 陶瓷茶壶/茶杯/摊开的画册
   const tableGroup = new THREE.Group();
-  tableGroup.position.set(5.4, 0, 1.35);
+  tableGroup.position.set(5.4, 0, 1.05);
   const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.04, 0.62), trimWoodMat);
   tableTop.position.y = 0.34;
   tableTop.castShadow = true;
@@ -2379,7 +2379,8 @@ function renderDrawer() {
 
     const modeTag = document.createElement('span');
     modeTag.className = 'agent-model-tag';
-    modeTag.textContent = boss.isPaused() ? '已暂停' : '巡逻中';
+    modeTag.id = 'boss-drawer-mode';
+    modeTag.textContent = boss.isPaused() ? '已暂停' : boss.isSitting() ? '休息中' : '巡查中';
     topLine.append(left, modeTag);
 
     const taskLine = document.createElement('div');
@@ -2547,12 +2548,12 @@ function openBossInspector() {
   const grid = document.createElement('div');
   grid.className = 'spec-grid';
   const specs = [
-    ['角色定位', '工作室老板'],
-    ['巡逻路线', 'Zone C → Zone A → Zone B'],
-    ['巡逻状态', boss.isPaused() ? '已暂停' : '自动巡逻中'],
-    ['跟拍视角', state.followBoss ? '已开启跟随' : '自由视角'],
+    ['角色定位', '工作室老板', null],
+    ['巡逻节奏', '沙发休息 ↔ 全区轮巡', null],
+    ['当前状态', boss.isPaused() ? '已暂停' : boss.isSitting() ? '沙发小憩中' : '慢步巡查中', 'boss-inspector-mode'],
+    ['跟拍视角', state.followBoss ? '已开启跟随' : '自由视角', null],
   ];
-  for (const [k, v] of specs) {
+  for (const [k, v, id] of specs) {
     const cell = document.createElement('div');
     cell.className = 'spec-cell';
     const label = document.createElement('div');
@@ -2560,6 +2561,7 @@ function openBossInspector() {
     label.textContent = k;
     const val = document.createElement('div');
     val.className = 'spec-v';
+    if (id) val.id = id;
     val.textContent = v;
     cell.append(label, val);
     grid.appendChild(cell);
@@ -2569,8 +2571,20 @@ function openBossInspector() {
   const actions = document.createElement('div');
   actions.className = 'inspector-actions';
 
+  const sitBtn = document.createElement('button');
+  sitBtn.type = 'button';
+  sitBtn.id = 'boss-sit-btn';
+  sitBtn.textContent = boss.isSitting() ? '起来巡查' : '去沙发歇会';
+  sitBtn.addEventListener('click', () => {
+    if (boss.isSitting()) boss.startPatrol();
+    else boss.goSit();
+    renderDrawer();
+    openBossInspector();
+  });
+
   const followBtn = document.createElement('button');
   followBtn.type = 'button';
+  followBtn.className = 'secondary';
   followBtn.id = 'boss-follow-btn';
   followBtn.textContent = state.followBoss ? '取消跟随' : '跟随视角';
   followBtn.addEventListener('click', () => {
@@ -2583,14 +2597,14 @@ function openBossInspector() {
   pauseBtn.type = 'button';
   pauseBtn.className = 'secondary';
   pauseBtn.id = 'boss-pause-btn';
-  pauseBtn.textContent = boss.isPaused() ? '继续巡逻' : '暂停巡逻';
+  pauseBtn.textContent = boss.isPaused() ? '继续' : '暂停';
   pauseBtn.addEventListener('click', () => {
     boss.togglePause();
     renderDrawer();
     openBossInspector();
   });
 
-  actions.append(followBtn, pauseBtn);
+  actions.append(sitBtn, followBtn, pauseBtn);
   body.appendChild(actions);
   document.getElementById('inspector').hidden = false;
 }
@@ -3520,6 +3534,11 @@ function animate() {
   if (boss) {
     boss.update(dt, elapsed);
     const statusText = boss.getStatus();
+    const drawerModeText = boss.isPaused() ? '已暂停' : boss.isSitting() ? '休息中' : '巡查中';
+    const drawerMode = document.getElementById('boss-drawer-mode');
+    if (drawerMode && drawerMode.textContent !== drawerModeText) {
+      drawerMode.textContent = drawerModeText;
+    }
     const drawerStatus = document.getElementById('boss-drawer-status');
     if (drawerStatus && drawerStatus.textContent !== statusText) {
       drawerStatus.textContent = statusText;
@@ -3527,6 +3546,16 @@ function animate() {
     const inspStatus = document.getElementById('boss-inspector-status');
     if (inspStatus && inspStatus.textContent !== statusText) {
       inspStatus.textContent = statusText;
+    }
+    const inspModeText = boss.isPaused() ? '已暂停' : boss.isSitting() ? '沙发小憩中' : '慢步巡查中';
+    const inspMode = document.getElementById('boss-inspector-mode');
+    if (inspMode && inspMode.textContent !== inspModeText) {
+      inspMode.textContent = inspModeText;
+    }
+    const sitBtn = document.getElementById('boss-sit-btn');
+    const sitLabel = boss.isSitting() ? '起来巡查' : '去沙发歇会';
+    if (sitBtn && sitBtn.textContent !== sitLabel) {
+      sitBtn.textContent = sitLabel;
     }
 
     const dx = boss.root.position.x - lastBossPos.x;

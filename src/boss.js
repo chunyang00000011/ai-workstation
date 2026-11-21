@@ -157,19 +157,26 @@ function makeBootFoot(whiteMat, oliveMat, metalMat) {
 }
 
 const WAYPOINTS = [
-  { x: 1.35, z: -0.25, pause: 2.2, lookAt: [2.35, -2.75], text: '视察 GPT 网页版 · 方案对比加油', walkText: '巡逻中 · 前往 Codex' },
-  { x: 3.9, z: -0.15, pause: 2.6, lookAt: [5.15, -2.05], text: '视察 Codex · 代码跑得稳不稳？', walkText: '巡逻中 · 前往休息区' },
-  { x: 2.8, z: 1.15, pause: 0, walkText: '巡逻中 · 前往 Zone C' },
-  { x: 0.0, z: 1.05, pause: 2.4, lookAt: [0.0, 2.9], text: '视察访客区 · 等你们入职', walkText: '巡逻中 · 前往 Zone A' },
-  { x: -3.8, z: 0.85, pause: 0, walkText: '巡逻中 · 前往 Zone A' },
-  { x: -4.9, z: -0.85, pause: 2.6, lookAt: [-4.9, -2.8], text: '视察 Antigravity · 干得不错', walkText: '巡逻中 · 前往 Gemini' },
-  { x: -1.5, z: -0.85, pause: 2.6, lookAt: [-1.5, -2.8], text: '视察 Gemini · 思考进度如何？', walkText: '巡逻中 · 前往 Zone B' },
+  { x: 5.4, z: 2.46, sit: true, pause: 11.0, lookAt: [5.4, 0.0], text: '沙发小憩 · 喝茶看大家', walkText: '巡查完毕 · 回沙发歇会' },
+  { x: 5.4, z: 1.82, pause: 0, walkText: '起身出发 · 前往 Codex' },
+  { x: 4.15, z: 1.82, pause: 0, walkText: '慢步巡查 · 前往 Codex' },
+  { x: 3.9, z: -0.15, pause: 3.0, lookAt: [5.15, -2.05], text: '视察 Codex · 代码跑得稳不稳？', walkText: '慢步巡查 · 前往 Codex' },
+  { x: 1.35, z: -0.25, pause: 3.0, lookAt: [2.35, -2.75], text: '视察 GPT 网页版 · 方案对比加油', walkText: '慢步巡查 · 前往 GPT 网页版' },
+  { x: -1.5, z: -0.85, pause: 3.0, lookAt: [-1.5, -2.8], text: '视察 Gemini · 思考进度如何？', walkText: '慢步巡查 · 前往 Gemini' },
+  { x: -4.9, z: -0.85, pause: 3.2, lookAt: [-4.9, -2.8], text: '视察 Antigravity · 干得不错', walkText: '慢步巡查 · 前往 Antigravity' },
+  { x: -3.8, z: 0.85, pause: 0, walkText: '慢步巡查 · 前往 Zone C' },
+  { x: 0.0, z: 1.05, pause: 3.0, lookAt: [0.0, 2.9], text: '视察访客区 · 等你们入职', walkText: '慢步巡查 · 前往访客区' },
+  { x: 4.15, z: 1.82, pause: 0, walkText: '巡查完毕 · 回沙发歇会' },
+  { x: 5.4, z: 1.82, pause: 0, walkText: '巡查完毕 · 回沙发歇会' },
 ];
 
+function angleDiff(a, b) {
+  const twoPi = Math.PI * 2;
+  return ((((b - a + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI;
+}
+
 function lerpAngle(a, b, t) {
-  let diff = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
-  if (diff < -Math.PI) diff += Math.PI * 2;
-  return a + diff * t;
+  return a + angleDiff(a, b) * t;
 }
 
 export function createBossNailong({ std, makeContactShadow, makeBossLabel, reducedMotion = false }) {
@@ -457,11 +464,13 @@ export function createBossNailong({ std, makeContactShadow, makeBossLabel, reduc
     }
   });
 
-  // 巡逻状态机
+  // 巡逻 & 沙发休息状态机（启动时先坐在沙发上小憩一会，再起身轮巡）
   const patrol = {
     idx: 0,
-    pauseTimer: WAYPOINTS[0].pause,
+    pauseTimer: 9.0,
     paused: false,
+    sitting: true,
+    sitBlend: 1.0,
     walkPhase: 0,
     statusText: WAYPOINTS[0].text,
   };
@@ -472,60 +481,134 @@ export function createBossNailong({ std, makeContactShadow, makeBossLabel, reduc
     if (label.userData.modelEl) label.userData.modelEl.textContent = text;
   }
 
-  // 初始朝向第一个停靠目标
+  function applySitPose(b, elapsedTime = 0) {
+    const legSwing = Math.sin(elapsedTime * 2.8) * 0.11 * b;
+    bodyGroup.position.y = THREE.MathUtils.lerp(bodyGroup.position.y, 0.13 + Math.sin(elapsedTime * 2.0) * 0.008, b * 0.35 + (b === 1 ? 0.65 : 0));
+    leftLeg.position.y = THREE.MathUtils.lerp(0.42, 0.54, b);
+    rightLeg.position.y = THREE.MathUtils.lerp(0.42, 0.54, b);
+    leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, -1.32 + legSwing, 0.22 + (b === 1 ? 0.78 : 0));
+    rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, -1.32 - legSwing, 0.22 + (b === 1 ? 0.78 : 0));
+    waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, -0.35, 0.16 + (b === 1 ? 0.84 : 0));
+    waveArm.rotation.z = THREE.MathUtils.lerp(waveArm.rotation.z, -0.42 + Math.sin(elapsedTime * 1.8) * 0.08, 0.16 + (b === 1 ? 0.84 : 0));
+    label.position.y = 2.04 + b * 0.12;
+    shadow.material.opacity = THREE.MathUtils.lerp(0.28, 0.08, b);
+  }
+
+  // 初始坐在沙发上面朝室内
   if (WAYPOINTS[0].lookAt) {
     const [lx, lz] = WAYPOINTS[0].lookAt;
     root.rotation.y = Math.atan2(lx - root.position.x, lz - root.position.z);
   }
-  waveArm.rotation.z = -2.25;
+  applySitPose(1.0, 0);
 
   function update(dt, elapsed) {
     if (reducedMotion) {
-      waveArm.rotation.set(0, 0, -2.25);
-      return;
-    }
-
-    if (patrol.paused) {
-      setStatusText('巡逻已暂停 · 原地待命');
-      leftLeg.rotation.x *= 0.85;
-      rightLeg.rotation.x *= 0.85;
-      bodyGroup.position.y *= 0.85;
-      bodyGroup.rotation.z *= 0.85;
-      waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, 0, 0.12);
-      waveArm.rotation.z = THREE.MathUtils.lerp(waveArm.rotation.z, -2.25 + Math.sin(elapsed * 4.5) * 0.14, 0.12);
+      applySitPose(1.0, 0);
       return;
     }
 
     const wp = WAYPOINTS[patrol.idx];
-    if (patrol.pauseTimer > 0) {
-      patrol.pauseTimer -= dt;
-      setStatusText(wp.text || '巡逻停靠中');
-      if (wp.lookAt) {
-        const targetYaw = Math.atan2(wp.lookAt[0] - root.position.x, wp.lookAt[1] - root.position.z);
-        root.rotation.y = lerpAngle(root.rotation.y, targetYaw, Math.min(1, dt * 5.5));
+    const shouldSit = !patrol.paused && Boolean(wp.sit) && patrol.pauseTimer > 0;
+    patrol.sitting = shouldSit || patrol.sitBlend > 0.5;
+
+    if (patrol.paused) {
+      setStatusText(patrol.sitBlend > 0.5 ? '在沙发歇息中 · 已暂停轮巡' : '巡查已暂停 · 原地待命');
+      if (patrol.sitBlend > 0.5) {
+        patrol.sitBlend = THREE.MathUtils.lerp(patrol.sitBlend, 1.0, Math.min(1, dt * 4.0));
+        bodyGroup.rotation.z *= 0.85;
+        applySitPose(patrol.sitBlend, elapsed);
+      } else {
+        leftLeg.position.y = THREE.MathUtils.lerp(leftLeg.position.y, 0.42, 0.15);
+        rightLeg.position.y = THREE.MathUtils.lerp(rightLeg.position.y, 0.42, 0.15);
+        leftLeg.rotation.x *= 0.85;
+        rightLeg.rotation.x *= 0.85;
+        bodyGroup.position.y *= 0.85;
+        bodyGroup.rotation.z *= 0.85;
+        waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, 0, 0.12);
+        waveArm.rotation.z = THREE.MathUtils.lerp(waveArm.rotation.z, -2.25 + Math.sin(elapsed * 4.5) * 0.14, 0.12);
       }
-      leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, 0, 0.15);
-      rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, 0, 0.15);
-      bodyGroup.position.y = THREE.MathUtils.lerp(bodyGroup.position.y, Math.sin(elapsed * 2.4) * 0.01, 0.15);
-      bodyGroup.rotation.z = THREE.MathUtils.lerp(bodyGroup.rotation.z, 0, 0.15);
-      waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, 0, 0.15);
-      waveArm.rotation.z = THREE.MathUtils.lerp(
-        waveArm.rotation.z,
-        -2.25 + Math.sin(elapsed * 7.2) * 0.24,
-        0.18,
-      );
+      return;
+    }
+
+    if (patrol.pauseTimer > 0) {
+      if (wp.sit) {
+        const targetYaw = Math.PI;
+        root.rotation.y = lerpAngle(root.rotation.y, targetYaw, Math.min(1, dt * 10.0));
+        const remainingYaw = Math.abs(angleDiff(root.rotation.y, targetYaw));
+        if (remainingYaw < 0.04) root.rotation.y = targetYaw;
+
+        if (remainingYaw < 0.3) {
+          patrol.pauseTimer -= dt;
+          setStatusText(wp.text || '沙发小憩 · 喝茶看大家');
+          patrol.sitBlend = Math.min(1.0, patrol.sitBlend + dt * 2.4);
+          bodyGroup.rotation.z = THREE.MathUtils.lerp(bodyGroup.rotation.z, 0, 0.2);
+          applySitPose(patrol.sitBlend, elapsed);
+        } else {
+          // 抵达沙发位先原地转正面向室内，再优雅坐下
+          setStatusText('转身准备坐下…');
+          leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, 0, 0.25);
+          rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, 0, 0.25);
+          bodyGroup.rotation.z = THREE.MathUtils.lerp(bodyGroup.rotation.z, 0, 0.25);
+          bodyGroup.position.y = THREE.MathUtils.lerp(bodyGroup.position.y, 0, 0.25);
+        }
+      } else {
+        patrol.pauseTimer -= dt;
+        setStatusText(wp.text || '停靠休息中');
+        if (wp.lookAt) {
+          const targetYaw = Math.atan2(wp.lookAt[0] - root.position.x, wp.lookAt[1] - root.position.z);
+          root.rotation.y = lerpAngle(root.rotation.y, targetYaw, Math.min(1, dt * 5.0));
+        }
+        patrol.sitBlend = Math.max(0.0, patrol.sitBlend - dt * 2.4);
+        leftLeg.position.y = THREE.MathUtils.lerp(leftLeg.position.y, 0.42, 0.18);
+        rightLeg.position.y = THREE.MathUtils.lerp(rightLeg.position.y, 0.42, 0.18);
+        leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, 0, 0.15);
+        rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, 0, 0.15);
+        bodyGroup.position.y = THREE.MathUtils.lerp(bodyGroup.position.y, Math.sin(elapsed * 2.2) * 0.01, 0.15);
+        bodyGroup.rotation.z = THREE.MathUtils.lerp(bodyGroup.rotation.z, 0, 0.15);
+        waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, 0, 0.15);
+        waveArm.rotation.z = THREE.MathUtils.lerp(
+          waveArm.rotation.z,
+          -2.25 + Math.sin(elapsed * 7.0) * 0.22,
+          0.18,
+        );
+        label.position.y = 2.04 + patrol.sitBlend * 0.12;
+        shadow.material.opacity = THREE.MathUtils.lerp(0.28, 0.08, patrol.sitBlend);
+      }
+
       if (patrol.pauseTimer <= 0) {
         patrol.idx = (patrol.idx + 1) % WAYPOINTS.length;
       }
       return;
     }
 
-    // 迈步前往下一巡逻点
-    setStatusText(wp.walkText || '巡逻中');
+    // 先从沙发稳步起身再向前迈步
+    if (patrol.sitBlend > 0.08) {
+      patrol.sitBlend = Math.max(0.0, patrol.sitBlend - dt * 2.8);
+      const b = patrol.sitBlend;
+      leftLeg.position.y = THREE.MathUtils.lerp(0.42, 0.54, b);
+      rightLeg.position.y = THREE.MathUtils.lerp(0.42, 0.54, b);
+      leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, -1.32 * b, 0.25);
+      rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, -1.32 * b, 0.25);
+      bodyGroup.position.y = THREE.MathUtils.lerp(bodyGroup.position.y, 0.13 * b, 0.25);
+      waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, 0, 0.2);
+      waveArm.rotation.z = THREE.MathUtils.lerp(waveArm.rotation.z, -0.25, 0.2);
+      label.position.y = 2.04 + b * 0.12;
+      shadow.material.opacity = THREE.MathUtils.lerp(0.28, 0.08, b);
+      setStatusText('准备起身去巡查…');
+      return;
+    }
+    patrol.sitBlend = 0;
+    leftLeg.position.y = 0.42;
+    rightLeg.position.y = 0.42;
+    label.position.y = 2.04;
+    shadow.material.opacity = 0.28;
+
+    // 慢步巡查前往下一巡逻点
+    setStatusText(wp.walkText || '慢步巡查中');
     const dx = wp.x - root.position.x;
     const dz = wp.z - root.position.z;
     const dist = Math.hypot(dx, dz);
-    const speed = 1.05;
+    const speed = 1.12;
 
     if (dist < 0.08) {
       root.position.x = wp.x;
@@ -543,17 +626,17 @@ export function createBossNailong({ std, makeContactShadow, makeBossLabel, reduc
     root.position.z += (dz / dist) * stepDist;
 
     const moveYaw = Math.atan2(dx, dz);
-    root.rotation.y = lerpAngle(root.rotation.y, moveYaw, Math.min(1, dt * 6.0));
+    root.rotation.y = lerpAngle(root.rotation.y, moveYaw, Math.min(1, dt * 6.5));
 
-    // 奶龙胖嘟嘟摇摆步态
-    patrol.walkPhase += dt * 7.2;
+    // 奶龙悠闲摇摆步态
+    patrol.walkPhase += dt * 6.4;
     const swing = Math.sin(patrol.walkPhase);
-    leftLeg.rotation.x = swing * 0.42;
-    rightLeg.rotation.x = -swing * 0.42;
-    bodyGroup.position.y = Math.abs(swing) * 0.036;
-    bodyGroup.rotation.z = swing * 0.068;
+    leftLeg.rotation.x = swing * 0.36;
+    rightLeg.rotation.x = -swing * 0.36;
+    bodyGroup.position.y = Math.abs(swing) * 0.028;
+    bodyGroup.rotation.z = swing * 0.056;
     waveArm.rotation.z = THREE.MathUtils.lerp(waveArm.rotation.z, -0.22, 0.15);
-    waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, -swing * 0.34, 0.18);
+    waveArm.rotation.x = THREE.MathUtils.lerp(waveArm.rotation.x, -swing * 0.3, 0.18);
   }
 
   return {
@@ -562,6 +645,29 @@ export function createBossNailong({ std, makeContactShadow, makeBossLabel, reduc
     label,
     getStatus: () => patrol.statusText,
     isPaused: () => patrol.paused,
+    isSitting: () => patrol.sitting,
+    startPatrol: () => {
+      patrol.paused = false;
+      patrol.pauseTimer = 0;
+      if (patrol.idx === 0 || patrol.idx >= 9) {
+        patrol.idx = 1;
+      }
+      setStatusText('准备起身去巡查…');
+    },
+    goSit: () => {
+      patrol.paused = false;
+      patrol.pauseTimer = 0;
+      if (patrol.idx === 0) {
+        patrol.pauseTimer = WAYPOINTS[0].pause;
+      } else if (patrol.idx === 1 || Math.hypot(root.position.x - 5.4, root.position.z - 1.82) < 0.45) {
+        patrol.idx = 0;
+      } else if (root.position.x > 3.5 && root.position.z > 0.6) {
+        patrol.idx = 10;
+      } else if (patrol.idx < 9) {
+        patrol.idx = 9;
+      }
+      setStatusText('巡查完毕 · 回沙发歇会');
+    },
     togglePause: () => {
       patrol.paused = !patrol.paused;
       return patrol.paused;
