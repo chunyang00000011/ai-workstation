@@ -7,6 +7,19 @@
 - **这个仓库**：多 AI 共用的代码库。Antigravity 桌面端直接克隆、改代码、提交；
   Gemini 网页端直接读这里的文件给建议；Muse 负责合并、测试、同步回在线办公室。
 
+## 本地运行
+
+仓库根目录就是可独立运行的单页 Three.js 应用（`index.html` + `src/`），运行时读取
+`config/models.json`。必须用 HTTP 服务打开，不能直接双击 `file://`：
+
+```bash
+python -m http.server 8000
+# 打开 http://localhost:8000
+```
+
+检查清单：五张工位按 `config/models.json` 显示模型；桌牌清晰；Zone A 的 Antigravity 和
+Gemini 头顶标签不重叠（默认视角、窄屏、旋转时）；文案是“状态快照（非持续同步）”。
+
 ## 多 AI 怎么分工
 
 | AI | 在这里能做什么 |
@@ -18,6 +31,9 @@
 
 ## 目录
 
+- `index.html` — 办公室单页应用外壳（Atelier Braun 界面：抽屉 3 标签页、检查员卡片、对话页、⌘K 指令坞）
+- `src/app.js` — Three.js 场景：剖面式制图室、三区布局、视角、点选工位、对话解析
+- `src/labels.js` — 桌牌（单层 1024×384）与头顶标签，含 Zone A 错开方案
 - `config/models.json` — 五个 AI 的模型配置（已验证的才写进去，未验证的留空）
 - `docs/v6-design-spec.md` — 办公室 v6「Atelier Braun · 精密制图室」设计规范
 - `docs/known-issues.md` — 已知问题和待办，第一项就是 Zone A 的名字重叠
