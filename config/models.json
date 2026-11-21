@@ -56,10 +56,11 @@
       "aliases": ["AGY", "Antigravity CLI", "反重力"],
       "allowCustomModel": true,
       "bridge": "antigravity-cli",
-      "defaultModel": "Gemini 4 Neon High",
+      "defaultModel": "Orchestrator Gemini 4 Neon Extra High",
       "id": 5,
       "lastVerifiedAt": "2026-11-21",
       "models": [
+        "Orchestrator Gemini 4 Neon Extra High",
         "Gemini 4 Neon High",
         "4 Carbon Medium",
         "4 Argon Medium",
@@ -74,7 +75,7 @@
       "provider": "Google",
       "status": "verified",
       "surface": "Desktop / Local & Cloud",
-      "thinkingLevel": "High"
+      "thinkingLevel": "Extra High"
     },
     {
       "aliases": ["Codex CLI", "OpenAI Codex"],

@@ -59,7 +59,7 @@ python -m http.server 8000
 
 ## 当前状态（2026-11-21 已验证）
 
-- Antigravity：Google AI Ultra，桌面端 / 本机 CLI（本地工作区 + 云端对话实连）
+- Antigravity：Google AI Ultra，默认本地对话 · Orchestrator Gemini 4 Neon Extra High / Extra High（支持本地工作区 + 云端对话）
 - Codex：Plus / Codex CLI，默认 GPT-6.2-Sol / High（已接入本机 CLI 与最近会话）
 - GPT 网页版：Plus，默认 GPT-6（另有 GPT-5.6 Sol）
 - Gemini：Google AI Ultra，默认 4 Neon（另有 自动、4 Hydrogen、4 Carbon）

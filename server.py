@@ -47,6 +47,7 @@ _AGY_MODELS_CACHE: dict = {
     "slug_to_display": {},
 }
 _SESSION_TURNS_CACHE: dict[str, list[dict]] = {}
+_AGY_CLOUD_CONVS: set[str] = set()
 
 
 def _cache_turn(conv_id: str | None, user_text: str, assistant_text: str):
@@ -463,22 +464,25 @@ def _read_agy_default_model() -> str | None:
     return model.strip() if isinstance(model, str) and model.strip() else None
 
 
-def _parse_workspace_project(workspace_uris_raw: str | None) -> tuple[str, str | None]:
-    if not isinstance(workspace_uris_raw, str) or not workspace_uris_raw.strip():
-        return "cloud", None
-    try:
-        uris = json.loads(workspace_uris_raw)
-    except Exception:
-        uris = []
-    if not isinstance(uris, list):
-        return "cloud", None
-    for uri in uris:
-        if isinstance(uri, str) and uri.strip().lower().startswith("file://"):
-            parsed = urlparse(uri.strip())
-            decoded_path = unquote(parsed.path or "").rstrip("/\\")
-            base = Path(decoded_path).name if decoded_path else ""
-            return "local", (base or "本地工作区")
-    return "cloud", None
+def _parse_workspace_project(
+    workspace_uris_raw: str | None,
+    conv_id: str | None = None,
+) -> tuple[str, str | None, str]:
+    if conv_id and conv_id in _AGY_CLOUD_CONVS:
+        return "cloud", None, "云端对话"
+    if isinstance(workspace_uris_raw, str) and workspace_uris_raw.strip():
+        try:
+            uris = json.loads(workspace_uris_raw)
+        except Exception:
+            uris = []
+        if isinstance(uris, list):
+            for uri in uris:
+                if isinstance(uri, str) and uri.strip().lower().startswith("file://"):
+                    parsed = urlparse(uri.strip())
+                    decoded_path = unquote(parsed.path or "").rstrip("/\\")
+                    base = Path(decoded_path).name if decoded_path else ""
+                    return "local", (base or "本地工作区"), "本地工作区"
+    return "local", None, "本地对话"
 
 
 def _read_agy_recent_from_fs(limit: int = 3) -> list[dict]:
@@ -564,14 +568,14 @@ def _read_agy_recent_conversations(limit: int = 3) -> list[dict]:
         for cid, title, preview, mod_time, ws_raw, not_idle in rows:
             if not isinstance(cid, str) or not VALID_CONV_ID_RE.match(cid):
                 continue
-            mode, project = _parse_workspace_project(ws_raw)
+            mode, project, mode_label = _parse_workspace_project(ws_raw, cid)
             recent.append({
                 "id": cid,
                 "title": _clean_title(title or preview, "Antigravity 对话"),
                 "project": project,
                 "time": _format_timestamp(mod_time),
                 "mode": mode,
-                "modeLabel": "本地工作区" if mode == "local" else "云端对话",
+                "modeLabel": mode_label,
                 "active": bool(not_idle),
                 "source": "bridge",
             })
@@ -1135,6 +1139,8 @@ class WorkstationHandler(SimpleHTTPRequestHandler):
                 self._send_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": err_msg})
                 return
 
+            if mode_str == "cloud" and out_conv_id:
+                _AGY_CLOUD_CONVS.add(out_conv_id)
             _cache_turn(out_conv_id, prompt, reply_text)
 
             self._send_json(
@@ -1142,6 +1148,7 @@ class WorkstationHandler(SimpleHTTPRequestHandler):
                 {
                     "ok": True,
                     "model": display_name,
+                    "requestedModel": body.get("model"),
                     "slug": slug,
                     "mode": mode_str,
                     "modeLabel": "本地工作区" if mode_str == "local" else "云端对话",

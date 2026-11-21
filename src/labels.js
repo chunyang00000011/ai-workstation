@@ -71,7 +71,7 @@ export function makeDeskPlateTexture(agent, defaultModel, accentHex = '#ff6b3d')
 
   // 第二行：默认模型或待核对
   ctx.fillStyle = isPending ? '#8A869C' : '#58546A';
-  ctx.font = fitFont(ctx, modelText, innerMaxW, 84, 48, '500');
+  ctx.font = fitFont(ctx, modelText, innerMaxW, 84, 36, '500');
   ctx.fillText(modelText, PLATE_W / 2, 288, innerMaxW);
 
   const tex = new THREE.CanvasTexture(canvas);

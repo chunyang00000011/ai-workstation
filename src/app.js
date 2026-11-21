@@ -30,7 +30,7 @@ const FALLBACK_CONFIG = {
     { id: 2, name: 'Claude', provider: 'Anthropic', plan: null, status: 'pending', defaultModel: null, models: [], thinkingLevel: null, lastVerifiedAt: null, allowCustomModel: true },
     { id: 3, name: 'Gemini', provider: 'Google', plan: 'Google AI Ultra', status: 'verified', defaultModel: '4 Neon', models: ['自动', '4 Hydrogen', '4 Neon', '4 Carbon'], thinkingLevel: 'Low', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
     { id: 4, name: 'Grok', provider: 'xAI', plan: null, status: 'pending', defaultModel: null, models: [], thinkingLevel: null, lastVerifiedAt: null, allowCustomModel: true },
-    { id: 5, name: 'Antigravity', aliases: ['AGY', 'Antigravity CLI', '反重力'], bridge: 'antigravity-cli', surface: 'Desktop / Local & Cloud', provider: 'Google', plan: 'Google AI Ultra', status: 'verified', defaultModel: 'Gemini 4 Neon High', models: ['Gemini 4 Neon High', '4 Carbon Medium', '4 Argon Medium', '4 Hydrogen Medium', '3.8 Flash Medium', 'Claude Opus 5.5 Medium', 'Claude Sonnet 5.5 Medium', 'GPT-OSS 120B Medium'], thinkingLevel: 'High', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
+    { id: 5, name: 'Antigravity', aliases: ['AGY', 'Antigravity CLI', '反重力'], bridge: 'antigravity-cli', surface: 'Desktop / Local & Cloud', provider: 'Google', plan: 'Google AI Ultra', status: 'verified', defaultModel: 'Orchestrator Gemini 4 Neon Extra High', models: ['Orchestrator Gemini 4 Neon Extra High', 'Gemini 4 Neon High', '4 Carbon Medium', '4 Argon Medium', '4 Hydrogen Medium', '3.8 Flash Medium', 'Claude Opus 5.5 Medium', 'Claude Sonnet 5.5 Medium', 'GPT-OSS 120B Medium'], thinkingLevel: 'Extra High', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
     { id: 6, name: 'Codex', aliases: ['Codex CLI', 'OpenAI Codex'], surface: 'CLI / Desktop', bridge: 'codex-cli', provider: 'OpenAI', plan: 'Plus / Codex CLI', status: 'verified', defaultModel: 'GPT-6.2-Sol', models: ['GPT-6.2-Sol', 'GPT-6.2-Astra', 'GPT-6.1 Terra', 'GPT-6.1-Sol', 'GPT-6-Astra', 'GPT-6-Sol', 'GPT-6-Luna', 'GPT-5.6-Sol', 'GPT-5.6-Terra', 'GPT-5.6-Luna'], thinkingLevel: 'High', lastVerifiedAt: '2026-11-21', allowCustomModel: true },
   ],
 };
@@ -209,7 +209,7 @@ const DEFAULT_RECENT_THREADS = {
       source: 'localStorage',
       messages: [
         { role: 'user', text: '帮我安排本周 CUDA 算子与混合精度训练实验计划' },
-        { role: 'assistant', text: '建议先完成 AMP 基准测试，再逐层 profiling 关键 Linear/LayerNorm 耗时。', meta: 'Antigravity · Gemini 4 Neon High' },
+        { role: 'assistant', text: '建议先完成 AMP 基准测试，再逐层 profiling 关键 Linear/LayerNorm 耗时。', meta: 'Antigravity · Orchestrator Gemini 4 Neon Extra High' },
       ],
     },
     {
@@ -2941,7 +2941,7 @@ async function selectRecentConversation(agentId, convId) {
   const conv = entry.recent.find((c) => c.id === convId);
   if (!conv) return;
 
-  if (conv.mode === 'local' || conv.mode === 'cloud') {
+  if (agentId === 5 && (conv.mode === 'local' || conv.mode === 'cloud')) {
     state.agMode = conv.mode;
   }
   state.currentTopic = conv.title || '';
@@ -2982,6 +2982,9 @@ function startNewConversation(agentId) {
   state.currentAgent = agentId;
   state.inspectingBoss = false;
   state.currentTopic = '';
+  if (agentId === 5) {
+    state.agMode = 'local';
+  }
   if (state.conversations[agentId]) {
     state.conversations[agentId].activeId = null;
   }
@@ -3303,30 +3306,20 @@ async function loadAntigravityBridgeStatus() {
     if (!agAgent) return;
 
     if (Array.isArray(data.models) && data.models.length > 0) {
-      const merged = [...data.models];
-      for (const existing of agAgent.models) {
-        if (!merged.includes(existing)) merged.push(existing);
+      const merged = [...agAgent.models];
+      for (const cliModel of data.models) {
+        if (!merged.includes(cliModel)) merged.push(cliModel);
       }
       agAgent.models = merged;
     }
-    if (data.defaultModel) {
-      agAgent.defaultModel = data.defaultModel;
-      state.selectedModels[agAgent.id] = data.defaultModel;
-    }
-    if (data.thinkingLevel) {
-      agAgent.thinkingLevel = data.thinkingLevel;
-    }
     if (Array.isArray(data.recentConversations) && data.recentConversations.length > 0) {
       const recent = data.recentConversations.slice(0, 3);
-      // 默认选中最新一条未运行中或首条会话
+      // 默认选中最新一条未运行中或首条会话，但保持 Antigravity 默认本地模式。
       const preferred = recent.find((c) => !c.active) || recent[0];
       state.conversations[agAgent.id] = {
         recent,
         activeId: preferred.id,
       };
-      if (preferred.mode === 'local' || preferred.mode === 'cloud') {
-        state.agMode = preferred.mode;
-      }
     }
     SNAPSHOT[agAgent.id] = {
       status: '工作中',
