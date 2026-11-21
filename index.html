@@ -3,175 +3,558 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI 工作站 · 3D 办公室</title>
+<title>AI 工作站 · Atelier Braun 精密制图室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #f4efe4;
-    --paper-2: #ece4d2;
-    --card: #fbf8f1;
-    --ink: #2b2620;
-    --ink-2: #6b6257;
-    --line: #ddd2bd;
-    --copper: #b0703c;
-    --copper-soft: #e8d9c4;
-    --green: #3f7d4e;
-    --amber: #b98a1d;
-    --gray: #8a8378;
-    --shadow: 0 8px 28px rgba(43, 38, 32, 0.16);
+    --bg: #ede8de;
+    --surface: rgba(248, 245, 239, 0.92);
+    --surface-solid: #f8f5ef;
+    --well: #e5dfd3;
+    --ink: #1c1a17;
+    --ink-2: #5e574d;
+    --ink-3: #8a8277;
+    --hairline: rgba(28, 26, 23, 0.11);
+    --hairline-strong: rgba(28, 26, 23, 0.2);
+    --accent: #d65a28;
+    --accent-soft: rgba(214, 90, 40, 0.11);
+    --green: #2e7d4f;
+    --amber: #c28516;
+    --gray: #8a8277;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --shadow-elev: 0 1px 2px rgba(28, 26, 23, 0.06), 0 12px 32px rgba(28, 26, 23, 0.1);
+    --shadow-sm: 0 1px 2px rgba(28, 26, 23, 0.05), 0 4px 12px rgba(28, 26, 23, 0.08);
+    --hud-top: 72px;
   }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
   body {
-    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
-    background: var(--paper);
+    font-family: "IBM Plex Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
     color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
   }
+
+  ::selection { background: var(--accent-soft); color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 999px; }
+
+  button {
+    font-family: inherit;
+    color: inherit;
+    transition: background-color 140ms var(--ease-out), border-color 140ms var(--ease-out), color 140ms var(--ease-out), transform 110ms var(--ease-out);
+  }
+  button:active { transform: scale(0.97); }
+
   #app { position: fixed; inset: 0; }
   #scene-container { position: absolute; inset: 0; }
   #scene-container canvas { display: block; }
 
+  /* 顶部建筑仪表条 */
   #topbar {
-    position: absolute; top: 0; left: 0; right: 0;
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 16px;
-    background: linear-gradient(rgba(244, 239, 228, 0.96), rgba(244, 239, 228, 0.82));
-    border-bottom: 1px solid var(--line);
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
     z-index: 10;
   }
-  #topbar h1 { font-size: 17px; margin: 0; letter-spacing: 1px; }
-  #topbar .sub { font-size: 12px; color: var(--ink-2); }
-  #snapshot-badge {
-    font-size: 12px; padding: 4px 10px; border-radius: 999px;
-    background: var(--copper-soft); color: var(--ink); border: 1px solid var(--line);
+  .topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .brand-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    color: var(--accent);
+  }
+  #topbar h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.01em; line-height: 1.2; }
+  #topbar .sub { font-size: 11px; color: var(--ink-2); line-height: 1.2; }
+  .topbar-sep { width: 1px; height: 20px; background: var(--hairline); flex: none; }
+
+  #drawer-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-solid);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
     white-space: nowrap;
   }
-  #views { margin-left: auto; display: flex; gap: 8px; }
+  #drawer-toggle:hover { border-color: var(--hairline-strong); }
+  #drawer-toggle.active { background: var(--ink); color: var(--surface-solid); border-color: var(--ink); }
+
+  #snapshot-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--well);
+    color: var(--ink-2);
+    border: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  #snapshot-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+  }
+
+  .view-controls { display: flex; align-items: center; gap: 8px; flex: none; }
+  #views {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: var(--well);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+  }
   .view-btn {
-    font-size: 13px; padding: 6px 12px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    height: 28px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .view-btn:hover { color: var(--ink); }
+  .view-btn.active {
+    background: var(--surface-solid);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(28, 26, 23, 0.08);
+  }
+  .auto-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    background: var(--surface-solid);
+    color: var(--ink-2);
+  }
+  .auto-btn:hover { border-color: var(--hairline-strong); color: var(--ink); }
+  .auto-btn.active { background: var(--ink); color: var(--surface-solid); border-color: var(--ink); }
+
+  /* 左侧控制抽屉（无嵌套卡片） */
+  #drawer {
+    position: absolute;
+    top: var(--hud-top);
+    left: 16px;
+    width: 280px;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    box-shadow: var(--shadow-elev);
+    z-index: 10;
+    overflow: hidden;
+  }
+  #drawer[hidden] { display: none; }
+
+  #drawer-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 8px;
+    background: var(--well);
+    border-bottom: 1px solid var(--hairline);
+  }
+  #drawer-tabs button[data-tab] {
+    height: 28px;
+    font-size: 12px;
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--ink-2);
+  }
+  #drawer-tabs button[data-tab]:hover { color: var(--ink); }
+  #drawer-tabs button[data-tab].active {
+    background: var(--surface-solid);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(28, 26, 23, 0.08);
+  }
+
+  .drawer-panel { max-height: calc(100vh - 192px); overflow-y: auto; font-size: 13px; }
+  .drawer-panel[hidden] { display: none; }
+
+  .agent-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--hairline);
+    text-align: left;
     cursor: pointer;
   }
-  .view-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .agent-row:last-child { border-bottom: none; }
+  .agent-row:hover { background: rgba(28, 26, 23, 0.03); }
+  .agent-row.active { background: var(--accent-soft); }
+  .agent-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+  .agent-row-id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .agent-name { font-weight: 600; font-size: 13px; color: var(--ink); }
+  .zone-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 4px;
+    height: 16px;
+    line-height: 16px;
+    border-radius: 4px;
+    background: var(--well);
+    color: var(--ink-2);
+    border: 1px solid var(--hairline);
+  }
+  .agent-model-tag {
+    font-size: 11px;
+    color: var(--ink-2);
+    max-width: 128px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .agent-row-task {
+    font-size: 12px;
+    color: var(--ink-2);
+    padding-left: 16px;
+    line-height: 1.4;
+  }
+  .progress-track {
+    height: 2px;
+    width: 100%;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--well);
+    overflow: hidden;
+  }
+  .progress-fill { height: 100%; border-radius: 999px; }
 
-  #drawer {
-    position: absolute; top: 64px; left: 16px; width: 288px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    box-shadow: var(--shadow); z-index: 10; overflow: hidden;
-  }
-  #drawer-tabs { display: flex; border-bottom: 1px solid var(--line); }
-  #drawer-tabs button {
-    flex: 1; padding: 10px 0; font-size: 13px; background: none;
-    border: none; border-bottom: 2px solid transparent; cursor: pointer; color: var(--ink-2);
-  }
-  #drawer-tabs button.active { color: var(--ink); border-bottom-color: var(--copper); font-weight: 600; }
-  .drawer-panel { padding: 12px; max-height: 52vh; overflow-y: auto; font-size: 13px; }
-  .drawer-panel[hidden] { display: none; }
-  .agent-row {
-    display: flex; align-items: center; gap: 8px; width: 100%;
-    padding: 8px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 8px;
-    background: #fff; cursor: pointer; font-size: 13px; text-align: left;
-  }
-  .agent-row:hover { border-color: var(--copper); }
-  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .model-group { padding: 12px; border-bottom: 1px solid var(--hairline); }
+  .model-group:last-child { border-bottom: none; }
+  .model-group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .model-group-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .model-group-plan { font-size: 11px; color: var(--ink-2); }
+  .model-chip-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .model-empty-note { width: 100%; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
   .model-chip {
-    display: inline-block; padding: 4px 8px; margin: 0 4px 4px 0;
-    border: 1px solid var(--line); border-radius: 999px; background: #fff;
-    font-size: 12px; cursor: pointer;
+    padding: 4px 8px;
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    background: var(--surface-solid);
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
   }
-  .model-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  .model-chip.pending { border-style: dashed; color: var(--ink-2); }
-  .check-row { padding: 8px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; background: #fff; }
-  .check-row .warn { color: #a33d1f; font-weight: 600; }
-  .check-row .ok { color: var(--green); font-weight: 600; }
+  .model-chip:hover { border-color: var(--hairline-strong); }
+  .model-chip.active { background: var(--ink); color: var(--surface-solid); border-color: var(--ink); }
+  .model-chip.pending { border-style: dashed; color: var(--ink-2); background: transparent; }
 
+  .check-row { padding: 12px; border-bottom: 1px solid var(--hairline); }
+  .check-row:last-child { border-bottom: none; }
+  .check-row-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .check-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .check-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .check-pill.ok { background: rgba(46, 125, 79, 0.12); color: var(--green); }
+  .check-pill.warn { background: var(--accent-soft); color: #a33d1f; }
+  .check-meta { font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+
+  /* 右侧检查员卡片（无标签页） */
   #inspector {
-    position: absolute; top: 64px; right: 16px; width: 392px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    box-shadow: var(--shadow); z-index: 10; font-size: 13px;
+    position: absolute;
+    top: var(--hud-top);
+    right: 16px;
+    width: 336px;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    box-shadow: var(--shadow-elev);
+    z-index: 10;
+    font-size: 13px;
+    overflow: hidden;
   }
   #inspector[hidden] { display: none; }
   #inspector header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 14px; border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hairline);
   }
-  #inspector header h2 { font-size: 15px; margin: 0; }
-  #inspector header button { background: none; border: none; font-size: 16px; cursor: pointer; }
-  #inspector-body { padding: 14px; }
-  #inspector-body section { margin-bottom: 12px; }
-  #inspector-body h3 { font-size: 12px; color: var(--ink-2); margin: 0 0 6px; letter-spacing: 1px; }
+  .inspector-head-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #inspector-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  #inspector header h2 { font-size: 14px; font-weight: 700; margin: 0; }
+  .icon-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .icon-close:hover { background: var(--well); color: var(--ink); }
+
+  #inspector-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .inspector-status-text { font-size: 13px; color: var(--ink); line-height: 1.45; }
+  .spec-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .spec-cell { background: var(--surface-solid); padding: 8px 12px; }
+  .spec-k { font-size: 11px; color: var(--ink-2); margin-bottom: 4px; }
+  .spec-v { font-size: 12px; font-weight: 600; color: var(--ink); word-break: break-word; }
+
   .inspector-actions { display: flex; gap: 8px; }
   .inspector-actions button {
-    flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--ink);
-    background: var(--ink); color: var(--paper); cursor: pointer; font-size: 13px;
+    flex: 1;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--surface-solid);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
   }
-  .inspector-actions button.secondary { background: #fff; color: var(--ink); }
+  .inspector-actions button:hover { background: #2e2a25; }
+  .inspector-actions button.secondary {
+    background: var(--surface-solid);
+    color: var(--ink);
+    border-color: var(--hairline-strong);
+  }
+  .inspector-actions button.secondary:hover { background: var(--well); }
 
+  /* 独立对话页（⌘K 瞬时打开，无开合延迟） */
   #dialogue {
-    position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%);
+    position: absolute;
+    left: 50%;
+    bottom: 72px;
+    transform: translateX(-50%);
     width: min(560px, calc(100vw - 32px));
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    box-shadow: var(--shadow); z-index: 10; font-size: 13px;
+    background: var(--surface-solid);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 12px;
+    box-shadow: var(--shadow-elev);
+    z-index: 12;
+    font-size: 13px;
+    overflow: hidden;
   }
   #dialogue[hidden] { display: none; }
   #dialogue header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--surface);
   }
-  #dialogue header h2 { font-size: 14px; margin: 0; }
-  #dialogue header button { background: none; border: none; font-size: 16px; cursor: pointer; }
-  #dialogue-log { padding: 12px 14px; max-height: 220px; overflow-y: auto; }
+  #dialogue header h2 { font-size: 14px; font-weight: 700; margin: 0; }
+  #dialogue-log { padding: 12px 16px; max-height: 220px; overflow-y: auto; }
+  #dialogue-log:empty::before {
+    content: "输入一句话即可点名工位或切换模型，例如：让 Gemini 用 4 Neon 写个总结";
+    display: block;
+    color: var(--ink-3);
+    font-size: 12px;
+  }
   #dialogue-log .msg { margin-bottom: 8px; line-height: 1.5; }
   #dialogue-log .msg.user { text-align: right; color: var(--ink-2); }
-  #dialogue-log .msg .sim { font-size: 11px; color: var(--ink-2); }
-  #dialogue-input-row { display: flex; gap: 8px; padding: 0 14px 14px; }
+  #dialogue-log .msg .sim { font-size: 11px; color: var(--ink-3); }
+  #dialogue-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--hairline);
+    background: var(--surface);
+  }
   #dialogue-input {
-    flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
-    font-size: 13px; font-family: inherit;
+    flex: 1;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ink);
   }
   #dialogue-send {
-    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--ink);
-    background: var(--ink); color: var(--paper); cursor: pointer; font-size: 13px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--surface-solid);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
   }
 
+  /* 底部指令坞（高密度精密读数条，无滚动条杂讯） */
   #dock {
-    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 8px; z-index: 10;
-    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
-    padding: 8px 12px; box-shadow: var(--shadow); font-size: 12px;
-    max-width: calc(100vw - 32px); overflow-x: auto;
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 10;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 6px 16px 6px 8px;
+    box-shadow: var(--shadow-elev);
+    font-size: 12px;
+    max-width: calc(100vw - 32px);
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  #dock::-webkit-scrollbar { display: none; }
   #dock .kbd {
-    font-weight: 700; border: 1px solid var(--line); border-radius: 6px;
-    padding: 2px 6px; background: var(--paper-2); white-space: nowrap;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 12px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 999px;
+    background: var(--surface-solid);
+    white-space: nowrap;
+    cursor: pointer;
+    flex: none;
   }
-  #dock .chip {
-    padding: 4px 10px; border-radius: 999px; background: var(--paper-2);
-    border: 1px solid var(--line); white-space: nowrap;
+  #dock .kbd:hover { border-color: var(--accent); color: var(--accent); }
+  .dock-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    padding-left: 12px;
+    border-left: 1px solid var(--hairline);
+    color: var(--ink-2);
   }
-  #dock .chip b { font-weight: 600; }
+  .dock-item:first-of-type { padding-left: 0; border-left: none; }
+  .dock-item b { font-weight: 600; color: var(--ink); }
 
+  /* 3D 头顶标签 */
+  .head-label-anchor { pointer-events: none; }
   .head-label {
-    font-size: 12px; line-height: 1.35; text-align: center;
-    background: rgba(251, 248, 241, 0.94);
-    border: 1px solid var(--line); border-radius: 8px;
-    padding: 4px 8px; white-space: nowrap; color: var(--ink);
-    box-shadow: 0 2px 8px rgba(43, 38, 32, 0.14);
+    font-size: 12px;
+    line-height: 1.35;
+    text-align: left;
+    background: rgba(250, 247, 240, 0.94);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 8px;
+    padding: 4px 10px;
+    white-space: nowrap;
+    color: var(--ink);
+    box-shadow: var(--shadow-sm);
     pointer-events: none;
   }
-  .head-label .name { font-weight: 700; }
-  .head-label .model { color: var(--ink-2); }
+  .head-label-top { display: flex; align-items: center; gap: 6px; }
+  .head-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .head-label .name { font-weight: 700; font-size: 12px; color: var(--ink); }
+  .head-label .model { font-size: 11px; color: var(--ink-2); padding-left: 12px; }
 
   #config-note {
-    position: absolute; bottom: 16px; left: 16px; z-index: 10;
-    font-size: 11px; color: var(--ink-2); background: rgba(251, 248, 241, 0.85);
-    border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px;
+    position: absolute;
+    bottom: 64px;
+    left: 16px;
+    z-index: 10;
+    font-size: 11px;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 4px 8px;
   }
   #config-note[hidden] { display: none; }
+
   @media (max-width: 720px) {
-    #drawer { width: 232px; top: 108px; }
-    #inspector { width: calc(100vw - 32px); right: 16px; }
-    #topbar { flex-wrap: wrap; }
-    #views { margin-left: 0; }
+    #topbar {
+      top: 8px;
+      left: 12px;
+      right: 12px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: 8px 12px;
+    }
+    .topbar-left { flex-wrap: wrap; gap: 8px; }
+    .topbar-sep { display: none; }
+    .view-controls { justify-content: space-between; width: 100%; }
+    .view-btn { padding: 0 8px; }
+    .auto-btn { height: 32px; padding: 0 8px; font-size: 12px; }
+    #drawer { width: calc(100vw - 24px); max-width: 312px; left: 12px; }
+    #inspector { width: calc(100vw - 24px); right: 12px; }
+    #dock { max-width: calc(100vw - 24px); gap: 8px; padding: 6px 12px 6px 6px; }
+    .dock-item { padding-left: 8px; }
+    .head-label { font-size: 11px; padding: 4px 8px; }
+    .head-label .name { font-size: 11px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+    button:active { transform: none; }
   }
 </style>
 <script type="importmap">
@@ -188,24 +571,50 @@
   <div id="scene-container"></div>
 
   <header id="topbar">
-    <div>
-      <h1>AI 工作站</h1>
-      <div class="sub">3D 办公室 · Atelier Braun 精密制图室</div>
+    <div class="topbar-left">
+      <button type="button" id="drawer-toggle" class="active" aria-expanded="true" title="展开/收起工作台抽屉">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+          <rect x="1.5" y="2.5" width="13" height="11" rx="2"/>
+          <line x1="6" y1="2.5" x2="6" y2="13.5"/>
+        </svg>
+        <span>面板</span>
+      </button>
+      <div class="brand-group">
+        <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="4"/>
+          <circle cx="12" cy="12" r="4"/>
+          <line x1="12" y1="3" x2="12" y2="8"/>
+        </svg>
+        <div>
+          <h1>AI 工作站</h1>
+          <div class="sub">Atelier Braun · 精密制图室</div>
+        </div>
+      </div>
+      <span class="topbar-sep" aria-hidden="true"></span>
+      <span id="snapshot-badge">状态快照（非持续同步）</span>
     </div>
-    <span id="snapshot-badge">状态快照（非持续同步）</span>
-    <nav id="views">
-      <button class="view-btn active" data-view="panoramic">全景</button>
-      <button class="view-btn" data-view="closeup">特写</button>
-      <button class="view-btn" data-view="top">俯视</button>
-      <button class="view-btn" data-view="auto">自动旋转</button>
-    </nav>
+
+    <div class="view-controls">
+      <nav id="views" aria-label="视角预设">
+        <button type="button" class="view-btn active" data-view="panoramic">全景</button>
+        <button type="button" class="view-btn" data-view="closeup">特写</button>
+        <button type="button" class="view-btn" data-view="top">俯视</button>
+      </nav>
+      <button type="button" class="view-btn auto-btn" data-view="auto" aria-pressed="false">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/>
+          <polyline points="13.5 2.5 13.5 5.5 10.5 5.5"/>
+        </svg>
+        <span>自动旋转</span>
+      </button>
+    </div>
   </header>
 
   <aside id="drawer">
     <div id="drawer-tabs">
-      <button class="active" data-tab="agents">工位</button>
-      <button data-tab="models">模型</button>
-      <button data-tab="check">检查</button>
+      <button type="button" class="active" data-tab="agents">工位</button>
+      <button type="button" data-tab="models">模型</button>
+      <button type="button" data-tab="check">检查</button>
     </div>
     <div class="drawer-panel" id="panel-agents"></div>
     <div class="drawer-panel" id="panel-models" hidden></div>
@@ -214,8 +623,16 @@
 
   <section id="inspector" hidden>
     <header>
-      <h2 id="inspector-title">工位</h2>
-      <button id="inspector-close" aria-label="关闭">✕</button>
+      <div class="inspector-head-title">
+        <span id="inspector-dot" aria-hidden="true"></span>
+        <h2 id="inspector-title">工位</h2>
+      </div>
+      <button type="button" id="inspector-close" class="icon-close" aria-label="关闭">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <line x1="3.5" y1="3.5" x2="12.5" y2="12.5"/>
+          <line x1="12.5" y1="3.5" x2="3.5" y2="12.5"/>
+        </svg>
+      </button>
     </header>
     <div id="inspector-body"></div>
   </section>
@@ -223,21 +640,26 @@
   <section id="dialogue" hidden>
     <header>
       <h2 id="dialogue-title">新对话</h2>
-      <button id="dialogue-close" aria-label="关闭">✕</button>
+      <button type="button" id="dialogue-close" class="icon-close" aria-label="关闭">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <line x1="3.5" y1="3.5" x2="12.5" y2="12.5"/>
+          <line x1="12.5" y1="3.5" x2="3.5" y2="12.5"/>
+        </svg>
+      </button>
     </header>
     <div id="dialogue-log"></div>
     <div id="dialogue-input-row">
-      <input id="dialogue-input" placeholder="输入一句话，比如：让 Gemini 用 4 Neon 写个总结">
-      <button id="dialogue-send">发送</button>
+      <input id="dialogue-input" placeholder="输入指令，例如：让 Gemini 用 4 Neon 写个总结">
+      <button type="button" id="dialogue-send">发送</button>
     </div>
   </section>
 
   <footer id="dock">
-    <span class="kbd">⌘K</span>
-    <span class="chip">工位 <b id="chip-agent">—</b></span>
-    <span class="chip">模型 <b id="chip-model">—</b></span>
-    <span class="chip">思考 <b id="chip-thinking">—</b></span>
-    <span class="chip">主题 <b id="chip-topic">—</b></span>
+    <button type="button" id="dock-cmd" class="kbd" title="打开指令对话 (⌘K / Ctrl+K)">⌘K</button>
+    <span class="dock-item">工位 <b id="chip-agent">—</b></span>
+    <span class="dock-item">模型 <b id="chip-model">—</b></span>
+    <span class="dock-item">思考 <b id="chip-thinking">—</b></span>
+    <span class="dock-item">主题 <b id="chip-topic">—</b></span>
   </footer>
 
   <div id="config-note" hidden>配置为离线快照（config/models.json 未能加载）</div>

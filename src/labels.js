@@ -11,57 +11,172 @@ export const ZONE_A_STAGGER = {
 
 const PLATE_W = 1024;
 const PLATE_H = 384;
+const FONT_STACK = '"IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif';
 
-// 单层 1024x384 桌牌：第一行名字，第二行默认模型（待核对工位写“待核对”）。
-export function makeDeskPlateTexture(agent, defaultModel) {
+function fitFont(ctx, text, maxWidth, startPx, minPx, weight = '') {
+  for (let size = startPx; size >= minPx; size -= 4) {
+    const font = `${weight ? `${weight} ` : ''}${size}px ${FONT_STACK}`;
+    ctx.font = font;
+    if (ctx.measureText(text).width <= maxWidth) return font;
+  }
+  return `${weight ? `${weight} ` : ''}${minPx}px ${FONT_STACK}`;
+}
+
+// 单层 1024x384 桌牌：Atelier Braun 阳极象牙铭牌（第一行名字，第二行默认模型/待核对）。
+export function makeDeskPlateTexture(agent, defaultModel, accentHex = '#b0703c') {
   const canvas = document.createElement('canvas');
   canvas.width = PLATE_W;
   canvas.height = PLATE_H;
   const ctx = canvas.getContext('2d');
+  const innerMaxW = PLATE_W - 120;
+  const modelText = defaultModel || '待核对';
+  const isPending = !defaultModel;
 
-  ctx.fillStyle = '#fbf8f1';
+  // 温润哑光瓷面底色与极微弱顶底光感
+  const bg = ctx.createLinearGradient(0, 0, 0, PLATE_H);
+  bg.addColorStop(0, '#FCF9F3');
+  bg.addColorStop(1, '#F2ECE0');
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, PLATE_W, PLATE_H);
-  ctx.strokeStyle = '#b0703c';
-  ctx.lineWidth = 10;
-  ctx.strokeRect(14, 14, PLATE_W - 28, PLATE_H - 28);
 
-  ctx.fillStyle = '#2b2620';
+  // 精密金属外框线
+  ctx.strokeStyle = '#CFC5B4';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(12, 12, PLATE_W - 24, PLATE_H - 24);
+
+  // 顶部内嵌品牌识别条（14px）
+  ctx.fillStyle = isPending ? '#9E978D' : accentHex;
+  ctx.fillRect(15, 15, PLATE_W - 30, 14);
+
+  // 右上角精密状态指示点
+  ctx.fillStyle = isPending ? '#9E978D' : accentHex;
+  ctx.beginPath();
+  ctx.arc(PLATE_W - 56, 68, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 第一行：工位名称
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '700 148px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(agent.name, PLATE_W / 2, 138);
+  ctx.fillStyle = '#1C1A17';
+  ctx.font = fitFont(ctx, agent.name, innerMaxW, 136, 76, '700');
+  ctx.fillText(agent.name, PLATE_W / 2, 148, innerMaxW);
 
-  ctx.fillStyle = '#6b6257';
-  ctx.font = '96px "PingFang SC", "Microsoft YaHei", sans-serif';
-  ctx.fillText(defaultModel || '待核对', PLATE_W / 2, 278);
+  // 中间精密分割线
+  ctx.fillStyle = 'rgba(28, 26, 23, 0.12)';
+  ctx.fillRect(110, 216, PLATE_W - 220, 2);
+
+  // 第二行：默认模型或待核对
+  ctx.fillStyle = isPending ? '#8A8277' : '#5E564C';
+  ctx.font = fitFont(ctx, modelText, innerMaxW, 84, 48, '500');
+  ctx.fillText(modelText, PLATE_W / 2, 286, innerMaxW);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
-// 头顶 CSS2D 标签：名字 + 默认模型两行。
-export function makeHeadLabel(agent, defaultModel) {
-  const div = document.createElement('div');
-  div.className = 'head-label';
-  const nameEl = document.createElement('div');
+// 头顶 CSS2D 标签：外层锚点由 CSS2DRenderer 控制定位，内层卡片用于防重叠微调。
+export function makeHeadLabel(agent, defaultModel, statusColorHex = '#8a8277') {
+  const anchor = document.createElement('div');
+  anchor.className = 'head-label-anchor';
+
+  const card = document.createElement('div');
+  card.className = 'head-label';
+
+  const topRow = document.createElement('div');
+  topRow.className = 'head-label-top';
+
+  const dot = document.createElement('span');
+  dot.className = 'head-dot';
+  dot.style.background = statusColorHex;
+
+  const nameEl = document.createElement('span');
   nameEl.className = 'name';
   nameEl.textContent = agent.name;
+  topRow.append(dot, nameEl);
+
   const modelEl = document.createElement('div');
   modelEl.className = 'model';
   modelEl.textContent = defaultModel || '待核对';
-  div.append(nameEl, modelEl);
 
-  const obj = new CSS2DObject(div);
-  // Zone A 两个标签用不同层级，避免视觉上互相压住。
+  card.append(topRow, modelEl);
+  anchor.appendChild(card);
+
+  const obj = new CSS2DObject(anchor);
+  obj.userData.cardEl = card;
+  obj.userData.nudgeY = 0;
+
+  // Three.js r160 CSS2DRenderer 每帧会按 renderOrder 覆写 zIndex，因此必须设置 renderOrder。
   const stagger = ZONE_A_STAGGER[agent.name];
-  if (stagger) div.style.zIndex = String(stagger.zIndex);
+  if (stagger) {
+    obj.renderOrder = stagger.zIndex;
+    anchor.style.zIndex = String(stagger.zIndex);
+    card.dataset.zone = 'A';
+  }
   return obj;
 }
 
 // 标签到头像之间的短引线。
 export function makeLeaderLine(from, to) {
   const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
-  const mat = new THREE.LineBasicMaterial({ color: 0xb0703c, transparent: true, opacity: 0.65 });
+  const mat = new THREE.LineBasicMaterial({ color: 0xb86d3b, transparent: true, opacity: 0.78 });
   return new THREE.Line(geo, mat);
+}
+
+function setCardNudge(labelObj, nudgeY) {
+  if (!labelObj?.userData?.cardEl) return;
+  if (labelObj.userData.nudgeY === nudgeY) return;
+  labelObj.userData.nudgeY = nudgeY;
+  labelObj.userData.cardEl.style.transform = nudgeY ? `translateY(${nudgeY}px)` : '';
+}
+
+// 渲染后屏幕空间防重叠兜底：默认不干预 3D 错开；仅在侧视/窄屏发生屏幕交叠时纵向拉开。
+export function resolveZoneAOverlap(antiLabel, geminiLabel, pad = 8) {
+  if (!antiLabel || !geminiLabel) return;
+  if (antiLabel.element.style.display === 'none' || geminiLabel.element.style.display === 'none') {
+    setCardNudge(antiLabel, 0);
+    setCardNudge(geminiLabel, 0);
+    return;
+  }
+
+  const antiCard = antiLabel.userData.cardEl;
+  const geminiCard = geminiLabel.userData.cardEl;
+  if (!antiCard || !geminiCard) return;
+
+  const ra = antiCard.getBoundingClientRect();
+  const rg = geminiCard.getBoundingClientRect();
+  if (ra.width === 0 || ra.height === 0 || rg.width === 0 || rg.height === 0) return;
+
+  const prevA = antiLabel.userData.nudgeY || 0;
+  const prevG = geminiLabel.userData.nudgeY || 0;
+  const baseATop = ra.top - prevA;
+  const baseABottom = ra.bottom - prevA;
+  const baseGTop = rg.top - prevG;
+  const baseGBottom = rg.bottom - prevG;
+
+  const overlapX = Math.min(ra.right, rg.right) - Math.max(ra.left, rg.left) + pad;
+  const overlapY = Math.min(baseABottom, baseGBottom) - Math.max(baseATop, baseGTop) + pad;
+
+  let nudgeA = 0;
+  let nudgeG = 0;
+  if (overlapX > 0 && overlapY > 0) {
+    const centerA = (baseATop + baseABottom) / 2;
+    const centerG = (baseGTop + baseGBottom) / 2;
+    if (centerA <= centerG) {
+      const needed = (baseABottom + pad) - baseGTop;
+      if (needed > 0) {
+        nudgeA = -Math.ceil(needed / 2);
+        nudgeG = Math.ceil(needed / 2);
+      }
+    } else {
+      const needed = (baseGBottom + pad) - baseATop;
+      if (needed > 0) {
+        nudgeG = -Math.ceil(needed / 2);
+        nudgeA = Math.ceil(needed / 2);
+      }
+    }
+  }
+
+  setCardNudge(antiLabel, nudgeA);
+  setCardNudge(geminiLabel, nudgeG);
 }
