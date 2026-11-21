@@ -1939,40 +1939,58 @@ function buildDesk(agent) {
     g.add(foot);
   }
   const crossbar = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.035, 0.035), frameMat);
-  crossbar.position.set(0, 0.24, -0.32);
+  crossbar.position.set(0, 0.24, 0.32);
   g.add(crossbar);
 
   const deskShadow = makeContactShadow(2.05, 1.25, 0.22);
   deskShadow.position.set(0, 0.012, 0);
   g.add(deskShadow);
 
-  // 角色主题色桌垫 + 彩色机械键盘 + 鼠标
+  // 角色主题色桌垫 + 彩色机械键盘 + 鼠标（靠近员工一侧 -Z，方便打字）
   const matColor = new THREE.Color(accentColor).lerp(new THREE.Color(0xffffff), 0.72);
-  const deskMat = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.008, 0.38), std(matColor, 0.86));
-  deskMat.position.set(0, 0.772, 0.06);
+  const deskMat = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.008, 0.34), std(matColor, 0.86));
+  deskMat.position.set(0, 0.772, -0.18);
   g.add(deskMat);
 
   const keyboard = new THREE.Mesh(
     new THREE.BoxGeometry(0.46, 0.018, 0.16),
     std(0xffffff, 0.42, { map: makeKeyboardTexture(accentHex) }),
   );
-  keyboard.position.set(-0.07, 0.785, 0.05);
+  keyboard.position.set(0.06, 0.785, -0.2);
+  keyboard.rotation.y = Math.PI;
   g.add(keyboard);
 
   const mouse = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.024, 0.105), std(0xfffaf2, 0.35));
-  mouse.position.set(0.28, 0.786, 0.06);
+  mouse.position.set(-0.28, 0.786, -0.19);
   g.add(mouse);
 
-  // 动漫风格高亮显示器 + 边角便签条
+  // 动漫风格高亮显示器（放在桌面远端 +Z，屏幕朝向 -Z 正对员工）
   const snap = SNAPSHOT[agent.id];
-  const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.45, 0.03), frameMat);
-  monitor.position.set(0, 1.07, -0.22);
+  const monitorHead = new THREE.Group();
+  monitorHead.position.set(0, 1.01, 0.19);
+  monitorHead.rotation.x = 0.06;
+
+  const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.38, 0.028), frameMat);
   monitor.castShadow = true;
-  g.add(monitor);
+  monitorHead.add(monitor);
+
+  const monitorBack = new THREE.Mesh(
+    new THREE.BoxGeometry(0.66, 0.34, 0.008),
+    std(0xf6f1e7, 0.45),
+  );
+  monitorBack.position.set(0, 0, 0.015);
+  monitorHead.add(monitorBack);
+
+  const monitorLogo = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.024, 0.006),
+    std(accentColor, 0.35),
+  );
+  monitorLogo.position.set(0, 0.02, 0.021);
+  monitorHead.add(monitorLogo);
 
   const screenTex = makeMonitorScreenTexture(agent, snap.status);
   const screenPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.71, 0.405),
+    new THREE.PlaneGeometry(0.65, 0.335),
     std(0xffffff, 0.3, {
       map: screenTex,
       emissive: 0xffffff,
@@ -1980,84 +1998,91 @@ function buildDesk(agent) {
       emissiveIntensity: snap.status === '待核对' ? 0.24 : 0.68,
     }),
   );
-  screenPlane.position.set(0, 1.07, -0.204);
-  g.add(screenPlane);
+  screenPlane.position.set(0, 0, -0.015);
+  screenPlane.rotation.y = Math.PI;
+  monitorHead.add(screenPlane);
 
-  const sticky = new THREE.Mesh(new THREE.PlaneGeometry(0.065, 0.065), std(0xffe177, 0.7));
-  sticky.position.set(0.32, 0.875, -0.203);
-  sticky.rotation.z = -0.08;
-  g.add(sticky);
+  const sticky = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.06), std(0xffe177, 0.7));
+  sticky.position.set(-0.27, -0.145, -0.016);
+  sticky.rotation.y = Math.PI;
+  sticky.rotation.z = 0.08;
+  monitorHead.add(sticky);
+  g.add(monitorHead);
 
-  const stand = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.25, 0.045), alumMat);
-  stand.position.set(0, 0.88, -0.23);
+  const stand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.042), alumMat);
+  stand.position.set(0, 0.87, 0.215);
   g.add(stand);
 
-  // 已验证工位：配色彩色台灯 + 热咖啡马克杯与蒸汽 + 彩色笔筒
+  const standBase = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.014, 0.14), alumMat);
+  standBase.position.set(0, 0.774, 0.2);
+  g.add(standBase);
+
+  // 已验证工位：配色彩色台灯（朝向键盘区）
   if (agent.status === 'verified') {
     const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.02, 16), std(accentColor, 0.48));
-    lampBase.position.set(-0.65, 0.778, -0.22);
+    lampBase.position.set(0.62, 0.778, 0.17);
     g.add(lampBase);
     const lampArm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.34, 8), alumMat);
-    lampArm.position.set(-0.65, 0.94, -0.22);
-    lampArm.rotation.z = -0.18;
+    lampArm.position.set(0.62, 0.94, 0.17);
+    lampArm.rotation.z = 0.18;
     g.add(lampArm);
     const lampHead = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.062, 0.12, 14), std(accentColor, 0.45));
-    lampHead.position.set(-0.59, 1.09, -0.19);
-    lampHead.rotation.x = Math.PI / 3;
-    lampHead.rotation.z = -0.3;
+    lampHead.position.set(0.56, 1.09, 0.14);
+    lampHead.rotation.x = -Math.PI / 3;
+    lampHead.rotation.z = 0.3;
     g.add(lampHead);
     const bulbGlow = new THREE.Mesh(
       new THREE.SphereGeometry(0.036, 10, 8),
       std(0xfff4cf, 0.2, { emissive: 0xffd578, emissiveIntensity: 0.95 }),
     );
-    bulbGlow.position.set(-0.58, 1.05, -0.17);
+    bulbGlow.position.set(0.55, 1.05, 0.12);
     g.add(bulbGlow);
   }
 
-  // 陶瓷热咖啡杯（工作/思考中的工位冒柔和热气）
+  // 陶瓷热咖啡杯（员工右手边 + 柔和热气）
   const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.038, 0.09, 14), std(0xfffdf8, 0.42));
-  mug.position.set(0.5, 0.812, -0.05);
+  mug.position.set(-0.52, 0.812, -0.08);
   mug.castShadow = true;
   g.add(mug);
   const coffee = new THREE.Mesh(new THREE.CircleGeometry(0.037, 12), std(0x6b4426, 0.35));
   coffee.rotation.x = -Math.PI / 2;
-  coffee.position.set(0.5, 0.858, -0.05);
+  coffee.position.set(-0.52, 0.858, -0.08);
   g.add(coffee);
   if (snap.status !== '待核对' && !REDUCED_MOTION) {
-    g.add(addSteamPuff(0.5, 0.88, -0.05, agent.id * 1.3));
-    g.add(addSteamPuff(0.5, 0.93, -0.05, agent.id * 1.3 + 1.9));
+    g.add(addSteamPuff(-0.52, 0.88, -0.08, agent.id * 1.3));
+    g.add(addSteamPuff(-0.52, 0.93, -0.08, agent.id * 1.3 + 1.9));
   }
 
-  // 右侧彩色笔筒 + 叠放笔记本 + 迷你多肉盆栽
+  // 彩色笔筒 + 叠放笔记本 + 迷你多肉盆栽
   const penCup = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.04, 0.1, 12), std(0xffc966, 0.55));
-  penCup.position.set(0.68, 0.818, -0.18);
+  penCup.position.set(-0.66, 0.818, 0.18);
   g.add(penCup);
   for (const [ox, oz, rz, col] of [[-0.015, 0, 0.14, 0xff6b3d], [0.012, 0.01, -0.12, 0x3b82f6], [0, -0.014, 0.04, 0x22b573]]) {
     const pencil = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.15, 6), std(col, 0.6));
-    pencil.position.set(0.68 + ox, 0.87, -0.18 + oz);
+    pencil.position.set(-0.66 + ox, 0.87, 0.18 + oz);
     pencil.rotation.z = rz;
     g.add(pencil);
   }
 
   const nb1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.022, 0.26), std(0x88d4f7, 0.72));
-  nb1.position.set(-0.56, 0.779, 0.14);
-  nb1.rotation.y = 0.12;
+  nb1.position.set(0.56, 0.779, -0.14);
+  nb1.rotation.y = -0.12;
   g.add(nb1);
   const nb2 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.018, 0.23), std(0xffb4a2, 0.72));
-  nb2.position.set(-0.55, 0.799, 0.13);
-  nb2.rotation.y = -0.08;
+  nb2.position.set(0.55, 0.799, -0.13);
+  nb2.rotation.y = 0.08;
   g.add(nb2);
 
   if (agent.id % 2 === 1) {
     const dPot = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.038, 0.075, 12), std(0xe88b68, 0.62));
-    dPot.position.set(-0.46, 0.805, -0.24);
+    dPot.position.set(0.44, 0.805, 0.2);
     g.add(dPot);
     const dSucc = new THREE.Mesh(new THREE.DodecahedronGeometry(0.048, 0), std(0x52cc7a, 0.6));
-    dSucc.position.set(-0.46, 0.86, -0.24);
+    dSucc.position.set(0.44, 0.86, 0.2);
     g.add(dSucc);
   }
 
-  // 桌牌：严格保持单层 1024x384（比例 8:3 -> 0.96m x 0.36m），斜嵌在胡桃木底座上
+  // 桌牌：严格保持单层 1024x384（比例 8:3 -> 0.96m x 0.36m），斜嵌在胡桃木底座上朝向访客 (+Z)
   const defaultModel = state.selectedModels[agent.id] ?? agent.defaultModel;
   const tex = makeDeskPlateTexture(agent, defaultModel, accentHex);
   tex.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
@@ -2082,13 +2107,13 @@ function buildDesk(agent) {
   // 精密状态 LED 指示钮
   const statusColor = STATUS_COLORS[snap.status];
   const ledBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.02, 16), alumMat);
-  ledBezel.position.set(0.68, 0.778, 0.28);
+  ledBezel.position.set(0.68, 0.778, 0.32);
   g.add(ledBezel);
   const dot = new THREE.Mesh(
     new THREE.SphereGeometry(0.028, 12, 10),
     std(statusColor, 0.3, { emissive: statusColor, emissiveIntensity: 0.65 }),
   );
-  dot.position.set(0.68, 0.79, 0.28);
+  dot.position.set(0.68, 0.79, 0.32);
   g.add(dot);
 
   // 灵动形象 + 工学座椅（Zone C 使用带靠垫共享长凳，Zone A/B 使用带靠背彩色转椅）
@@ -2143,8 +2168,8 @@ function buildDesk(agent) {
     g.add(makeLeaderLine(localTop, localAnchor));
   }
 
-  // 点击拾取：桌面 + 显示器 + 桌牌 + 角色躯干/头部
-  for (const m of [top, monitor, screenPlane, plate, rig.body, rig.head.children[0]]) {
+  // 点击拾取：桌面 + 显示器（正背面） + 桌牌 + 角色躯干/头部
+  for (const m of [top, monitor, monitorBack, screenPlane, plate, rig.body, rig.head.children[0]]) {
     m.userData.agentId = agent.id;
     pickables.push(m);
   }
