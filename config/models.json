@@ -5,14 +5,14 @@
       "allowCustomModel": true,
       "defaultModel": "GPT-6",
       "id": 1,
-      "lastVerifiedAt": "2026-11-21",
+      "lastVerifiedAt": "2026-11-22",
       "models": ["GPT-6", "GPT-5.6 Sol"],
       "name": "GPT 网页版",
       "plan": "Plus",
       "provider": "OpenAI",
       "status": "verified",
       "surface": "Web",
-      "thinkingLevel": "Medium"
+      "thinkingLevel": "High"
     },
     {
       "allowCustomModel": true,
@@ -31,7 +31,7 @@
       "allowCustomModel": true,
       "defaultModel": "4 Neon",
       "id": 3,
-      "lastVerifiedAt": "2026-11-21",
+      "lastVerifiedAt": "2026-11-22",
       "models": ["自动", "4 Hydrogen", "4 Neon", "4 Carbon"],
       "name": "Gemini",
       "plan": "Google AI Ultra",
@@ -58,7 +58,7 @@
       "bridge": "antigravity-cli",
       "defaultModel": "Orchestrator Gemini 4 Neon Extra High",
       "id": 5,
-      "lastVerifiedAt": "2026-11-21",
+      "lastVerifiedAt": "2026-11-22",
       "models": [
         "Orchestrator Gemini 4 Neon Extra High",
         "Gemini 4 Neon High",
@@ -106,5 +106,5 @@
   ],
   "note": "只记录在登录好的软件里亲眼验证过的模型。GPT 网页版与本机 Codex CLI 分别独立配置；Antigravity（本地工作区 / 云端对话）与 Codex CLI 可通过 server.py 直连本机 CLI 与最近对话；Claude、Grok 未登录，列表留空，只允许自定义输入。过期 14 天要重新核对。",
   "schemaVersion": 3,
-  "updated": "2026-11-21"
+  "updated": "2026-11-22"
 }
