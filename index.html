@@ -613,11 +613,101 @@
   #dialogue-log .msg.loading { color: var(--ink-2); font-style: italic; }
   #dialogue-log .msg-body { white-space: pre-wrap; word-break: break-word; margin: 4px 0; }
   #dialogue-log .msg .sim { font-size: 11px; color: var(--ink-3); }
+  #dialogue-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px 16px 0;
+    border-top: 1px solid var(--hairline);
+    background: var(--surface);
+  }
+  .dialogue-ctrl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 8px 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--hairline-strong);
+    background: var(--surface-solid);
+    min-width: 0;
+    max-width: 100%;
+    transition: border-color 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
+  }
+  .dialogue-ctrl:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .dialogue-ctrl-model { flex: 1 1 230px; }
+  .dialogue-ctrl-thinking { flex: 0 1 auto; min-width: 146px; }
+  .dialogue-ctrl-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-3);
+    flex: none;
+    user-select: none;
+  }
+  .dialogue-ctrl select {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dialogue-ctrl select:disabled { opacity: 0.6; cursor: progress; }
+
+  #dialogue-custom-model-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px 0;
+    background: var(--surface);
+  }
+  #dialogue-custom-model-row[hidden] { display: none; }
+  #dialogue-custom-model-input {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--ink);
+  }
+  #dialogue-custom-model-row button {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--surface-solid);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    flex: none;
+  }
+  #dialogue-custom-model-row button.secondary {
+    background: var(--surface-solid);
+    color: var(--ink);
+    border-color: var(--hairline-strong);
+  }
+
   #dialogue-input-row {
     display: flex;
     gap: 8px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--hairline);
+    padding: 8px 16px 12px;
     background: var(--surface);
   }
   #dialogue-input {
@@ -748,6 +838,11 @@
     .auto-btn { height: 32px; padding: 0 8px; font-size: 12px; }
     #drawer { width: calc(100vw - 24px); max-width: 312px; left: 12px; }
     #inspector { width: calc(100vw - 24px); right: 12px; }
+    #dialogue-controls { padding: 8px 12px 0; gap: 6px; }
+    .dialogue-ctrl-model { flex: 1 1 100%; }
+    .dialogue-ctrl-thinking { flex: 1 1 100%; }
+    #dialogue-custom-model-row { padding: 6px 12px 0; }
+    #dialogue-input-row { padding: 8px 12px 10px; }
     #dock { max-width: calc(100vw - 24px); gap: 8px; padding: 6px 12px 6px 6px; }
     .dock-item { padding-left: 8px; }
     .head-label { font-size: 11px; padding: 4px 8px; }
@@ -857,6 +952,21 @@
     </header>
     <div id="dialogue-threads"></div>
     <div id="dialogue-log"></div>
+    <div id="dialogue-controls" aria-label="模型与思考程度选择">
+      <label class="dialogue-ctrl dialogue-ctrl-model" for="dialogue-model-select">
+        <span class="dialogue-ctrl-label">模型</span>
+        <select id="dialogue-model-select" aria-label="选择模型"></select>
+      </label>
+      <label class="dialogue-ctrl dialogue-ctrl-thinking" for="dialogue-thinking-select">
+        <span class="dialogue-ctrl-label">思考</span>
+        <select id="dialogue-thinking-select" aria-label="选择思考程度"></select>
+      </label>
+    </div>
+    <div id="dialogue-custom-model-row" hidden>
+      <input id="dialogue-custom-model-input" type="text" placeholder="输入自定义模型名（如 claude-sonnet-4.6 / grok-4）">
+      <button type="button" id="dialogue-custom-model-apply">应用</button>
+      <button type="button" id="dialogue-custom-model-cancel" class="secondary">取消</button>
+    </div>
     <div id="dialogue-input-row">
       <input id="dialogue-input" placeholder="输入指令，例如：让 Antigravity 或 Codex 用一句话介绍自己">
       <button type="button" id="dialogue-send">发送</button>

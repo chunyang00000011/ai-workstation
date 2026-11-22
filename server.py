@@ -35,8 +35,38 @@ ANTIGRAVITY_CLI_CFG = Path.home() / ".gemini" / "antigravity-cli" / "settings.js
 VALID_SLUG_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 VALID_CONV_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 VALID_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
-VALID_AGY_EFFORTS = {"low", "medium", "high"}
+VALID_AGY_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 MAX_BODY_BYTES = 32 * 1024
+
+EFFORT_DISPLAY_MAP = {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "xhigh": "Extra High",
+    "max": "Max",
+}
+
+
+def _normalize_effort_arg(value: object, allowed: set[str]) -> str:
+    if not isinstance(value, str):
+        return ""
+    compact = re.sub(r"[\s_-]+", "", value.strip().lower())
+    if not compact:
+        return ""
+    if compact in {"extrahigh", "xhigh"}:
+        slug = "xhigh"
+    elif compact in {"med", "medium"}:
+        slug = "medium"
+    elif compact in {"low", "high", "max"}:
+        slug = compact
+    else:
+        return ""
+    return slug if slug in allowed else ""
+
+
+def _effort_to_display(effort: str | None) -> str | None:
+    slug = _normalize_effort_arg(effort, VALID_EFFORTS)
+    return EFFORT_DISPLAY_MAP.get(slug) if slug else None
 
 _CLI_VERSION_CACHE: dict[str, str | None] = {"bin": None, "version": None}
 _AGY_MODELS_CACHE: dict = {
@@ -384,7 +414,7 @@ def build_codex_status() -> dict:
         "cliVersion": cli_version,
         "defaultModel": default_display,
         "defaultModelSlug": default_slug,
-        "thinkingLevel": effort.capitalize(),
+        "thinkingLevel": _effort_to_display(effort) or "High",
         "models": models,
         "modelSlugs": model_slugs,
         "fetchedAt": fetched_at,
@@ -677,6 +707,10 @@ def _infer_effort_from_model(name: str | None) -> str | None:
     if not isinstance(name, str):
         return None
     low = name.lower()
+    if "extra high" in low or "extra-high" in low or "extra_high" in low or "xhigh" in low:
+        return "Extra High"
+    if re.search(r"\bmax\b", low):
+        return "Max"
     if "high" in low:
         return "High"
     if "medium" in low:
@@ -946,10 +980,8 @@ class WorkstationHandler(SimpleHTTPRequestHandler):
 
         display_name = slug_to_display.get(slug, req_model if isinstance(req_model, str) and req_model else slug)
 
-        req_effort = body.get("reasoning")
-        effort_args: list[str] = []
-        if isinstance(req_effort, str) and req_effort.strip().lower() in VALID_EFFORTS:
-            effort_args = ["-c", f'model_reasoning_effort="{req_effort.strip().lower()}"']
+        effort = _normalize_effort_arg(body.get("reasoning"), VALID_EFFORTS)
+        effort_args = ["-c", f'model_reasoning_effort="{effort}"'] if effort else []
 
         tmp_path: str | None = None
         started = time.perf_counter()
@@ -1023,6 +1055,7 @@ class WorkstationHandler(SimpleHTTPRequestHandler):
                     "ok": True,
                     "model": display_name,
                     "slug": slug,
+                    "effort": effort or None,
                     "conversationId": conv_id or out_thread_id,
                     "resumed": bool(conv_id),
                     "reply": reply_text,
@@ -1079,11 +1112,9 @@ class WorkstationHandler(SimpleHTTPRequestHandler):
         status_info = build_antigravity_status()
         slug, display_name = _resolve_agy_model(body.get("model"), status_info)
 
-        req_effort = body.get("effort")
-        effort = req_effort.strip().lower() if isinstance(req_effort, str) else ""
-        if effort not in VALID_AGY_EFFORTS:
-            inferred = _infer_effort_from_model(display_name)
-            effort = inferred.lower() if inferred else ""
+        effort = _normalize_effort_arg(body.get("effort"), VALID_AGY_EFFORTS)
+        if not effort:
+            effort = _normalize_effort_arg(_infer_effort_from_model(display_name), VALID_AGY_EFFORTS)
 
         cmd = [
             agy_bin,
@@ -1150,6 +1181,7 @@ class WorkstationHandler(SimpleHTTPRequestHandler):
                     "model": display_name,
                     "requestedModel": body.get("model"),
                     "slug": slug,
+                    "effort": effort or None,
                     "mode": mode_str,
                     "modeLabel": "本地工作区" if mode_str == "local" else "云端对话",
                     "conversationId": out_conv_id,
