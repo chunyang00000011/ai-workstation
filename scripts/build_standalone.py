@@ -73,6 +73,7 @@ def _inline_app_js(app_src: str) -> str:
   }
   for (const agent of state.config.agents) {
     state.selectedModels[agent.id] = agent.defaultModel;
+    state.selectedThinking[agent.id] = normalizeThinkingLabel(agent.thinkingLevel);
   }
 }"""
 
@@ -82,6 +83,7 @@ def _inline_app_js(app_src: str) -> str:
   }
   for (const agent of state.config.agents) {
     state.selectedModels[agent.id] = agent.defaultModel;
+    state.selectedThinking[agent.id] = normalizeThinkingLabel(agent.thinkingLevel);
   }
 }"""
 
@@ -146,6 +148,8 @@ def _verify_standalone_html(html: str, cfg_json: str, vendor_three_js: str, app_
         'id="snapshot-config"',
         'id="three-r160-bundle"',
         'id="ai-workstation-app"',
+        'id="dialogue-model-select"',
+        'id="dialogue-thinking-select"',
         "IS_LOCAL_HOST",
         "Orchestrator Gemini 4 Neon Extra High",
         "状态快照（非持续同步）",

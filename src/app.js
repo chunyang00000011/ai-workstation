@@ -21,6 +21,36 @@ const ENV_INTENSITY = 0.42;
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const STORAGE_THREADS_KEY = 'ai-workstation-threads-v1';
 
+const THINKING_OPTIONS = [
+  { value: 'Low', label: 'Low · 轻度' },
+  { value: 'Medium', label: 'Medium · 均衡' },
+  { value: 'High', label: 'High · 深度' },
+  { value: 'Extra High', label: 'Extra High · 极深' },
+  { value: 'Max', label: 'Max · 最强' },
+];
+
+function normalizeThinkingLabel(val) {
+  if (typeof val !== 'string') return null;
+  const norm = val.trim().toLowerCase().replace(/[\s_-]+/g, '');
+  if (!norm) return null;
+  if (norm === 'low') return 'Low';
+  if (norm === 'medium' || norm === 'med') return 'Medium';
+  if (norm === 'high') return 'High';
+  if (norm === 'extrahigh' || norm === 'xhigh') return 'Extra High';
+  if (norm === 'max') return 'Max';
+  return val.trim();
+}
+
+function thinkingToEffortSlug(label) {
+  const norm = normalizeThinkingLabel(label);
+  if (norm === 'Low') return 'low';
+  if (norm === 'Medium') return 'medium';
+  if (norm === 'High') return 'high';
+  if (norm === 'Extra High') return 'xhigh';
+  if (norm === 'Max') return 'max';
+  return null;
+}
+
 // 运行时读 config/models.json；加载失败时用这份离线快照（与 2026-11-21 已验证内容一致）。
 const FALLBACK_CONFIG = {
   schemaVersion: 3,
@@ -295,6 +325,7 @@ const LAYOUT = {
 const state = {
   config: FALLBACK_CONFIG,
   selectedModels: {},
+  selectedThinking: {},
   currentAgent: null,
   currentTopic: '',
   cameraGoal: null,
@@ -2297,6 +2328,14 @@ function updateAgentModelVisuals(agentId, model) {
   }
 }
 
+function getAgentThinking(agentId) {
+  if (Object.prototype.hasOwnProperty.call(state.selectedThinking, agentId)) {
+    return state.selectedThinking[agentId];
+  }
+  const agent = state.config.agents.find((a) => a.id === agentId);
+  return normalizeThinkingLabel(agent?.thinkingLevel);
+}
+
 function updateDock() {
   const agent = state.currentAgent
     ? state.config.agents.find((a) => a.id === state.currentAgent)
@@ -2305,7 +2344,7 @@ function updateDock() {
   document.getElementById('chip-model').textContent = agent
     ? (state.selectedModels[agent.id] ?? agent.defaultModel ?? '待核对')
     : '—';
-  document.getElementById('chip-thinking').textContent = agent ? (agent.thinkingLevel ?? '—') : '—';
+  document.getElementById('chip-thinking').textContent = agent ? (getAgentThinking(agent.id) ?? '—') : '—';
   document.getElementById('chip-topic').textContent = state.currentTopic || '—';
 }
 
@@ -2495,18 +2534,40 @@ function renderDrawer() {
 
     const detail = document.createElement('div');
     detail.className = 'check-meta';
-    detail.textContent = `默认模型：${agent.defaultModel ?? '—'} · 思考等级：${agent.thinkingLevel ?? '—'}`;
+    detail.textContent = `默认模型：${agent.defaultModel ?? '—'} · 思考等级：${getAgentThinking(agent.id) ?? '—'}`;
     row.append(head, detail);
     checkPanel.appendChild(row);
   }
 }
 
-function selectModel(agentId, model) {
+function applyAgentModelChange(agentId, model) {
   state.selectedModels[agentId] = model;
   updateAgentModelVisuals(agentId, model);
-  state.currentAgent = agentId;
   updateDock();
   renderDrawer();
+  if (!document.getElementById('inspector').hidden && state.currentAgent === agentId) {
+    openInspector(agentId);
+  }
+  if (!document.getElementById('dialogue').hidden && state.currentAgent === agentId) {
+    renderDialogueControls(agentId);
+  }
+}
+
+function applyAgentThinkingChange(agentId, thinkingLevel) {
+  state.selectedThinking[agentId] = normalizeThinkingLabel(thinkingLevel);
+  updateDock();
+  renderDrawer();
+  if (!document.getElementById('inspector').hidden && state.currentAgent === agentId) {
+    openInspector(agentId);
+  }
+  if (!document.getElementById('dialogue').hidden && state.currentAgent === agentId) {
+    renderDialogueControls(agentId);
+  }
+}
+
+function selectModel(agentId, model) {
+  state.currentAgent = agentId;
+  applyAgentModelChange(agentId, model);
   openInspector(agentId);
 }
 
@@ -2684,7 +2745,7 @@ function openInspector(agentId) {
   grid.className = 'spec-grid';
   const specs = [
     ['订阅套餐', agent.plan ?? '未接入'],
-    ['思考等级', agent.thinkingLevel ?? '—'],
+    ['思考等级', getAgentThinking(agentId) ?? '—'],
     ['当前模型', model ?? '待核对（仅自定义）'],
     [
       agent.bridge ? '连接方式' : agent.surface === 'Web' ? '核对 · 入口' : '核对日期',
@@ -2873,6 +2934,118 @@ function renderDialogueHeader(agentId) {
   }
 }
 
+function hideCustomModelRow(restoreSelect = false) {
+  const row = document.getElementById('dialogue-custom-model-row');
+  const input = document.getElementById('dialogue-custom-model-input');
+  if (row) row.hidden = true;
+  if (input) input.value = '';
+  if (restoreSelect) {
+    const agentId = state.currentAgent ?? 5;
+    const agent = state.config.agents.find((a) => a.id === agentId);
+    const select = document.getElementById('dialogue-model-select');
+    if (select) {
+      select.value = state.selectedModels[agentId] ?? agent?.defaultModel ?? '';
+    }
+  }
+}
+
+function setDialogueControlsDisabled(disabled) {
+  const modelSelect = document.getElementById('dialogue-model-select');
+  const thinkingSelect = document.getElementById('dialogue-thinking-select');
+  const customInput = document.getElementById('dialogue-custom-model-input');
+  const customApply = document.getElementById('dialogue-custom-model-apply');
+  if (modelSelect) modelSelect.disabled = disabled;
+  if (thinkingSelect) thinkingSelect.disabled = disabled;
+  if (customInput) customInput.disabled = disabled;
+  if (customApply) customApply.disabled = disabled;
+}
+
+function renderDialogueControls(agentId) {
+  const agent = state.config.agents.find((a) => a.id === agentId);
+  const modelSelect = document.getElementById('dialogue-model-select');
+  const thinkingSelect = document.getElementById('dialogue-thinking-select');
+
+  if (modelSelect) {
+    modelSelect.replaceChildren();
+    const models = Array.isArray(agent?.models) ? agent.models : [];
+    const currentModel = state.selectedModels[agentId] ?? agent?.defaultModel ?? null;
+
+    if (!agent || (models.length === 0 && !currentModel)) {
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '待核对（可自定义）';
+      modelSelect.appendChild(placeholder);
+    }
+
+    if (currentModel && !models.includes(currentModel)) {
+      const customOpt = document.createElement('option');
+      customOpt.value = currentModel;
+      customOpt.textContent = `${currentModel}（自定义）`;
+      modelSelect.appendChild(customOpt);
+    }
+
+    for (const m of models) {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      modelSelect.appendChild(opt);
+    }
+
+    if (!agent || agent.allowCustomModel !== false) {
+      const customTrigger = document.createElement('option');
+      customTrigger.value = '__custom__';
+      customTrigger.textContent = '+ 自定义模型…';
+      modelSelect.appendChild(customTrigger);
+    }
+
+    modelSelect.value = currentModel ?? '';
+  }
+
+  if (thinkingSelect) {
+    thinkingSelect.replaceChildren();
+    const currentThinking = getAgentThinking(agentId);
+
+    if (currentThinking === null) {
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '未指定';
+      thinkingSelect.appendChild(noneOpt);
+    }
+
+    const seen = new Set();
+    for (const item of THINKING_OPTIONS) {
+      const opt = document.createElement('option');
+      opt.value = item.value;
+      opt.textContent = item.label;
+      thinkingSelect.appendChild(opt);
+      seen.add(item.value);
+    }
+
+    if (currentThinking && !seen.has(currentThinking)) {
+      const extraOpt = document.createElement('option');
+      extraOpt.value = currentThinking;
+      extraOpt.textContent = currentThinking;
+      thinkingSelect.appendChild(extraOpt);
+    }
+
+    thinkingSelect.value = currentThinking ?? '';
+  }
+
+  hideCustomModelRow();
+}
+
+function applyCustomModelFromDialogue() {
+  const input = document.getElementById('dialogue-custom-model-input');
+  const raw = input?.value.trim();
+  const targetId = state.currentAgent ?? 5;
+  if (!raw) {
+    hideCustomModelRow(true);
+    return;
+  }
+  applyAgentModelChange(targetId, raw);
+  document.getElementById('dialogue-input')?.focus();
+}
+
 function renderDialogueThreads(agentId) {
   const bar = document.getElementById('dialogue-threads');
   if (!bar) return;
@@ -2988,6 +3161,7 @@ async function selectRecentConversation(agentId, convId) {
   const agent = state.config.agents.find((a) => a.id === agentId);
   renderDialogueHeader(agentId);
   renderDialogueThreads(agentId);
+  renderDialogueControls(agentId);
   document.getElementById('dialogue').hidden = false;
   updateDock();
   renderDrawer();
@@ -3030,6 +3204,7 @@ function startNewConversation(agentId) {
   renderDialogueHeader(agentId);
   renderDialogueThreads(agentId);
   renderDialogueLog(agentId);
+  renderDialogueControls(agentId);
   document.getElementById('dialogue').hidden = false;
   updateDock();
   renderDrawer();
@@ -3046,6 +3221,7 @@ function openDialogue(agentId, topic) {
   renderDialogueHeader(agentId);
   renderDialogueThreads(agentId);
   renderDialogueLog(agentId);
+  renderDialogueControls(agentId);
   document.getElementById('dialogue').hidden = false;
   updateDock();
   renderDrawer();
@@ -3069,6 +3245,8 @@ async function sendDialogue() {
 
   const agent = state.config.agents.find((a) => a.id === targetId);
   const model = parsed.model ?? (agent ? (state.selectedModels[agent.id] ?? agent.defaultModel) : null);
+  const thinking = getAgentThinking(targetId);
+  const effortSlug = thinkingToEffortSlug(thinking);
   const promptText = parsed.topic || text;
   const activeConv = getActiveConversation(targetId);
   const activeConvId = activeConv?.source === 'bridge' ? activeConv.id : null;
@@ -3083,6 +3261,7 @@ async function sendDialogue() {
   input.value = '';
   renderDialogueHeader(targetId);
   renderDialogueThreads(targetId);
+  renderDialogueControls(targetId);
   updateDock();
   renderDrawer();
 
@@ -3094,12 +3273,14 @@ async function sendDialogue() {
     if (isLiveCodex) state.codexBridge.busy = true;
     sendBtn.disabled = true;
     sendBtn.textContent = '思考中…';
+    setDialogueControlsDisabled(true);
 
+    const thinkingSuffix = thinking ? ` · 思考 ${thinking}` : '';
     const loadingMsg = document.createElement('div');
     loadingMsg.className = 'msg loading';
     loadingMsg.textContent = isLiveAgy
-      ? `Antigravity（${model ?? '默认模型'} · ${state.agMode === 'cloud' ? '云端对话' : '本地工作区'}）正在处理…`
-      : `Codex（${model ?? 'GPT-6.2-Sol'}）正在本机只读沙箱中处理…`;
+      ? `Antigravity（${model ?? '默认模型'}${thinkingSuffix} · ${state.agMode === 'cloud' ? '云端对话' : '本地工作区'}）正在处理…`
+      : `Codex（${model ?? 'GPT-6.2-Sol'}${thinkingSuffix}）正在本机只读沙箱中处理…`;
     log.appendChild(loadingMsg);
     log.scrollTop = log.scrollHeight;
 
@@ -3109,13 +3290,14 @@ async function sendDialogue() {
         ? {
             prompt: promptText,
             model,
+            effort: effortSlug,
             mode: state.agMode,
             conversationId: activeConvId,
           }
         : {
             prompt: promptText,
             model,
-            reasoning: (agent.thinkingLevel || 'high').toLowerCase(),
+            reasoning: effortSlug || 'high',
             conversationId: activeConvId,
           };
 
@@ -3129,8 +3311,8 @@ async function sendDialogue() {
 
       if (res.ok && data.ok) {
         const metaText = isLiveAgy
-          ? `本机 Antigravity（${data.modeLabel || '本地工作区'} · ${((data.elapsedMs || 0) / 1000).toFixed(1)}s）`
-          : `本机 Codex CLI 真实回复（只读沙箱 · ${((data.elapsedMs || 0) / 1000).toFixed(1)}s）`;
+          ? `本机 Antigravity（${data.modeLabel || '本地工作区'}${thinkingSuffix} · ${((data.elapsedMs || 0) / 1000).toFixed(1)}s）`
+          : `本机 Codex CLI 真实回复（只读沙箱${thinkingSuffix} · ${((data.elapsedMs || 0) / 1000).toFixed(1)}s）`;
 
         const outId = data.conversationId || activeConv?.id || `${agent.bridge}-${Date.now()}`;
         const prevMsgs = Array.isArray(activeConv?.messages) ? activeConv.messages : [];
@@ -3178,8 +3360,10 @@ async function sendDialogue() {
       state.codexBridge.busy = false;
       sendBtn.disabled = false;
       sendBtn.textContent = '发送';
+      setDialogueControlsDisabled(false);
       renderDialogueHeader(targetId);
       renderDialogueThreads(targetId);
+      renderDialogueControls(targetId);
       if (!document.getElementById('inspector').hidden && state.currentAgent === targetId) {
         openInspector(targetId);
       }
@@ -3189,7 +3373,7 @@ async function sendDialogue() {
   }
 
   // 非本地桥接（GPT 网页版、Gemini、Claude、Grok 或纯静态离线模式）
-  const simReplyText = `（${model ?? '待核对'}）收到：${promptText}。`;
+  const simReplyText = `（${model ?? '待核对'}${thinking ? ` · 思考 ${thinking}` : ''}）收到：${promptText}。`;
   const simMeta = agent?.bridge
     ? '当前未连接到 server.py（纯静态模式），使用办公室内部模拟并保存至最近对话。'
     : '办公室内部模拟回复并保存至本地最近记录（非直连网页账号实时会话）。';
@@ -3272,6 +3456,7 @@ async function loadConfig() {
   }
   for (const agent of state.config.agents) {
     state.selectedModels[agent.id] = agent.defaultModel;
+    state.selectedThinking[agent.id] = normalizeThinkingLabel(agent.thinkingLevel);
   }
 }
 
@@ -3301,7 +3486,9 @@ async function loadCodexBridgeStatus() {
       state.selectedModels[codexAgent.id] = data.defaultModel;
     }
     if (data.thinkingLevel) {
-      codexAgent.thinkingLevel = data.thinkingLevel;
+      const norm = normalizeThinkingLabel(data.thinkingLevel);
+      codexAgent.thinkingLevel = norm;
+      state.selectedThinking[codexAgent.id] = norm;
     }
     if (data.fetchedAt) {
       codexAgent.lastVerifiedAt = data.fetchedAt;
@@ -3431,6 +3618,51 @@ function initUI() {
   document.getElementById('dialogue-send').addEventListener('click', sendDialogue);
   document.getElementById('dialogue-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendDialogue();
+  });
+
+  const modelSelect = document.getElementById('dialogue-model-select');
+  if (modelSelect) {
+    modelSelect.addEventListener('change', () => {
+      const targetId = state.currentAgent ?? 5;
+      if (modelSelect.value === '__custom__') {
+        const row = document.getElementById('dialogue-custom-model-row');
+        const customInput = document.getElementById('dialogue-custom-model-input');
+        const agent = state.config.agents.find((a) => a.id === targetId);
+        if (row) row.hidden = false;
+        if (customInput) {
+          customInput.value = state.selectedModels[targetId] ?? agent?.defaultModel ?? '';
+          customInput.focus();
+          customInput.select();
+        }
+      } else if (modelSelect.value) {
+        applyAgentModelChange(targetId, modelSelect.value);
+      }
+    });
+  }
+
+  const thinkingSelect = document.getElementById('dialogue-thinking-select');
+  if (thinkingSelect) {
+    thinkingSelect.addEventListener('change', () => {
+      const targetId = state.currentAgent ?? 5;
+      applyAgentThinkingChange(targetId, thinkingSelect.value || null);
+    });
+  }
+
+  document.getElementById('dialogue-custom-model-apply')?.addEventListener('click', applyCustomModelFromDialogue);
+  document.getElementById('dialogue-custom-model-cancel')?.addEventListener('click', () => {
+    hideCustomModelRow(true);
+    document.getElementById('dialogue-input')?.focus();
+  });
+  document.getElementById('dialogue-custom-model-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyCustomModelFromDialogue();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      hideCustomModelRow(true);
+      document.getElementById('dialogue-input')?.focus();
+    }
   });
 
   const dockCmd = document.getElementById('dock-cmd');
